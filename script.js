@@ -9,6 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
      ══════════════════════════════════════════════════════════════════════════ */
 
   const navbar = document.getElementById('navbar');
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!navbar) return;
 
   function updateNavbar() {
     if (window.scrollY > 60) {
@@ -28,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const hamburger   = document.getElementById('hamburger');
   const mobileMenu  = document.getElementById('mobileMenu');
-  const mobileLinks = mobileMenu ? mobileMenu.querySelectorAll('a') : [];
+  const mobileLinks = mobileMenu ? Array.from(mobileMenu.querySelectorAll('a')) : [];
 
   function openMenu() {
     hamburger.classList.add('open');
@@ -73,7 +76,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const revealElements = document.querySelectorAll('.reveal');
 
-  if (revealElements.length > 0 && 'IntersectionObserver' in window) {
+  if (prefersReducedMotion) {
+    revealElements.forEach((el) => el.classList.add('visible'));
+  } else if (revealElements.length > 0 && 'IntersectionObserver' in window) {
     const revealObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -102,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const heroImage = document.querySelector('.hero-img-tag');
 
-  if (heroImage) {
+  if (heroImage && !prefersReducedMotion) {
     let ticking = false;
 
     window.addEventListener('scroll', () => {
@@ -169,6 +174,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const statNums = document.querySelectorAll('.stat-num');
 
   function animateCount(el, target, suffix = '') {
+    if (prefersReducedMotion) {
+      el.textContent = `${target}${suffix}`;
+      return;
+    }
+
     const duration = 1800;
     const startTime = performance.now();
     const startVal = 0;
@@ -238,9 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
   navLinks.forEach((link) => {
     const linkPath = link.getAttribute('href');
     if (linkPath === currentPath || (currentPath === '' && linkPath === 'index.html')) {
-      link.style.color = 'var(--gold)';
-      // Add permanent underline for active page
-      link.style.setProperty('--active', '1');
+      link.classList.add('active');
     }
   });
 
@@ -258,7 +266,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const submitBtn  = contactForm.querySelector('[type="submit"]');
       const formData   = new FormData(contactForm);
-      const formAction = contactForm.getAttribute('action'); // Your Formspree endpoint
+      const formAction = contactForm.action || contactForm.getAttribute('action'); // Your Formspree endpoint
+
+      if (!submitBtn || !formAction) return;
 
       // Update button state
       submitBtn.textContent = 'Sending...';
@@ -295,15 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (existing) existing.remove();
 
     const msg = document.createElement('p');
-    msg.className  = 'form-message';
+    msg.className  = `form-message ${type}`;
     msg.textContent = message;
-    msg.style.cssText = `
-      margin-top: 1.25rem;
-      font-size: 0.82rem;
-      font-weight: 300;
-      letter-spacing: 0.04em;
-      color: ${type === 'success' ? 'var(--gold)' : '#c0392b'};
-    `;
     form.appendChild(msg);
   }
 

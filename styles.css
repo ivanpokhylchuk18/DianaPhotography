@@ -150,6 +150,15 @@ a { text-decoration: none; color: inherit; }
 .btn-ghost .arrow { transition: transform 0.3s; }
 .btn-ghost:hover .arrow { transform: translateX(5px); }
 
+.form-message {
+  margin-top: 1.25rem;
+  font-size: 0.82rem;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+.form-message.success { color: var(--gold); }
+.form-message.error { color: #c0392b; }
+
 /* Scroll reveal animation */
 .reveal {
   opacity: 0;
@@ -234,6 +243,8 @@ a { text-decoration: none; color: inherit; }
   transition: width 0.35s var(--ease-luxury);
 }
 .nav-links a:hover::after { width: 100%; }
+.nav-links a.active { color: var(--gold); }
+.nav-links a.active::after { width: 100%; }
 #navbar.scrolled .nav-links a { color: var(--stone); }
 #navbar.scrolled .nav-links a:hover { color: var(--charcoal); }
 
