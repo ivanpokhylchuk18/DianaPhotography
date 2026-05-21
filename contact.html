@@ -6,6 +6,9 @@
   <title>Contact | Diana Obermeyer Photography</title>
   <meta name="description" content="Contact Diana Obermeyer Photography for wedding, engagement, and portrait bookings." />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/light.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=Dancing+Script:wght@500;600&display=swap" rel="stylesheet" />
@@ -105,14 +108,106 @@
         <h2 class="section-title">Send a message</h2>
       </div>
     </div>
+    
     <div style="padding: 0 4rem 5rem; max-width: 900px; margin: 0 auto;">
-      <form id="contactForm" action="https://formspree.io/f/your-form-id" method="POST" style="display: grid; gap: 1.25rem;">
-        <input type="text" name="name" placeholder="Your name" required style="padding: 1rem; border: 1px solid rgba(44,44,44,0.12); background: white;" />
-        <input type="email" name="email" placeholder="Your email" required style="padding: 1rem; border: 1px solid rgba(44,44,44,0.12); background: white;" />
-        <input type="text" name="subject" placeholder="What are you booking?" required style="padding: 1rem; border: 1px solid rgba(44,44,44,0.12); background: white;" />
-        <textarea name="message" rows="6" placeholder="Tell me about your date, location, and what you envision." required style="padding: 1rem; border: 1px solid rgba(44,44,44,0.12); background: white;"></textarea>
-        <button type="submit" class="btn-primary" style="width: fit-content;">Send Message</button>
+      
+      <style>
+        .session-card:hover {
+          border-color: var(--gold) !important;
+          transform: translateY(-2px);
+        }
+        .session-card.selected {
+          border-color: var(--gold) !important;
+          background-color: var(--cream) !important;
+          box-shadow: 0 4px 20px rgba(184, 151, 106, 0.15);
+        }
+        .wizard-step {
+          display: none; /* Controlled dynamically via script.js */
+        }
+        .wizard-step.active {
+          display: grid;
+          gap: 1.25rem;
+        }
+      </style>
+
+      <div class="wizard-progress" style="display: flex; justify-content: space-between; margin-bottom: 3rem; font-family: var(--font-body); font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">
+        <span id="step-badge-1" style="color: var(--gold); font-weight: 600; border-bottom: 2px solid var(--gold); padding-bottom: 4px; transition: all 0.3s;">1. Session Type</span>
+        <span id="step-badge-2" style="color: var(--stone); opacity: 0.4; padding-bottom: 4px; transition: all 0.3s;">2. Details</span>
+        <span id="step-badge-3" style="color: var(--stone); opacity: 0.4; padding-bottom: 4px; transition: all 0.3s;">3. Confirm</span>
+      </div>
+
+      <form id="contactForm" style="display: grid; gap: 1.25rem;">
+        <input type="hidden" id="session_type" name="session_type" required />
+
+        <div id="wizard-step-1" class="wizard-step active">
+          <p style="font-family: var(--font-body); color: var(--stone); margin-bottom: 1.5rem; text-align: center;">Select your session category to begin:</p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            <div class="session-card" data-value="Wedding" style="padding: 2.5rem 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; text-align: center; cursor: pointer; transition: all 0.4s var(--ease-luxury);">
+              <h4 style="font-family: var(--font-display); font-size: 1.4rem; font-weight: 400;">Wedding</h4>
+            </div>
+            <div class="session-card" data-value="Engagement" style="padding: 2.5rem 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; text-align: center; cursor: pointer; transition: all 0.4s var(--ease-luxury);">
+              <h4 style="font-family: var(--font-display); font-size: 1.4rem; font-weight: 400;">Engagement</h4>
+            </div>
+            <div class="session-card" data-value="Portrait" style="padding: 2.5rem 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; text-align: center; cursor: pointer; transition: all 0.4s var(--ease-luxury);">
+              <h4 style="font-family: var(--font-display); font-size: 1.4rem; font-weight: 400;">Portrait</h4>
+            </div>
+            <div class="session-card" data-value="Elopement" style="padding: 2.5rem 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; text-align: center; cursor: pointer; transition: all 0.4s var(--ease-luxury);">
+              <h4 style="font-family: var(--font-display); font-size: 1.4rem; font-weight: 400;">Elopement</h4>
+            </div>
+            <div class="session-card" data-value="Family" style="padding: 2.5rem 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; text-align: center; cursor: pointer; transition: all 0.4s var(--ease-luxury);">
+              <h4 style="font-family: var(--font-display); font-size: 1.4rem; font-weight: 400;">Family</h4>
+            </div>
+          </div>
+        </div>
+
+        <div id="wizard-step-2" class="wizard-step">
+          <h3 id="step-2-heading" style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 300; margin-bottom: 1rem; color: var(--charcoal); text-align: center;">Tell me about your session</h3>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
+            <input type="text" name="name" placeholder="Your name" required style="padding: 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; font-family: var(--font-body);" />
+            <input type="email" name="email" placeholder="Your email" required style="padding: 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; font-family: var(--font-body);" />
+          </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
+            <input type="tel" name="phone" placeholder="Phone number" style="padding: 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; font-family: var(--font-body);" />
+            <div style="position: relative; display: flex; flex-direction: column;">
+              <input type="text" id="preferred_date" name="preferred_date" placeholder="Select your preferred date" required style="padding: 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; font-family: var(--font-body); color: var(--charcoal); cursor: pointer;" />
+            </div>
+          </div>
+
+          <input type="text" name="location" placeholder="Venue name or general location city" style="padding: 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; font-family: var(--font-body);" />
+          <textarea name="message" rows="5" placeholder="Share your beautiful vision, schedule ideas, or unique requests..." required style="padding: 1rem; border: 1px solid rgba(44,44,44,0.12); background: white; font-family: var(--font-body);"></textarea>
+          
+          <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <button type="button" id="prevBtn-2" class="btn-primary" style="background: transparent; color: var(--charcoal); border: 1px solid var(--charcoal); width: fit-content;">Back</button>
+            <button type="button" id="nextBtn-2" class="btn-primary" style="width: fit-content;">Continue</button>
+          </div>
+        </div>
+
+        <div id="wizard-step-3" class="wizard-step">
+          <h3 style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 300; margin-bottom: 0.5rem; color: var(--charcoal); text-align: center;">Review your request</h3>
+          <p style="font-family: var(--font-body); color: var(--stone); text-align: center; margin-bottom: 1.5rem;">Take a quick look over your submission before sending.</p>
+          
+          <div id="preview-container" style="background: var(--cream); padding: 2rem; border: 1px solid rgba(44,44,44,0.06); font-family: var(--font-body); line-height: 1.7; display: grid; gap: 0.75rem; font-size: 0.95rem; color: var(--charcoal);">
+            </div>
+
+          <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <button type="button" id="prevBtn-3" class="btn-primary" style="background: transparent; color: var(--charcoal); border: 1px solid var(--charcoal); width: fit-content;">Back</button>
+            <button type="submit" id="submitBtn" class="btn-primary" style="width: fit-content;">Submit Booking Request</button>
+          </div>
+        </div>
       </form>
+    <div id="wizard-success" style="display: none; text-align: center; padding: 4rem 2rem; background: var(--cream); border: 1px solid rgba(44,44,44,0.06); margin-top: 2rem;">
+        <span style="font-family: var(--font-script); font-size: 3.5rem; color: var(--gold); display: block; margin-bottom: 1rem;">Thank You</span>
+        <h3 style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 300; margin-bottom: 1.5rem; color: var(--charcoal); letter-spacing: 0.5px;">Your Story is Registered</h3>
+        <p style="font-family: var(--font-body); color: var(--stone); line-height: 1.8; max-width: 520px; margin: 0 auto 2.5rem; font-size: 1rem;">
+          Your booking request has been securely delivered to our studio. We have reserved your itinerary under Reference ID: <strong id="success-ref-id" style="color: var(--charcoal); font-family: monospace; background: rgba(184, 151, 106, 0.1); padding: 2px 6px; border-radius: 4px;"></strong>.
+        </p>
+        <div style="width: 40px; height: 1px; background: var(--gold); margin: 0 auto 2rem;"></div>
+        <p style="font-family: var(--font-body); color: var(--stone); font-size: 0.9rem; font-style: italic;">
+          Diana will review your vision notes and follow up via email within 24 hours to finalize details.
+        </p>
+      </div>
     </div>
   </section>
 

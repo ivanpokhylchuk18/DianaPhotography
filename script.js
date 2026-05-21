@@ -254,60 +254,202 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   /* ══════════════════════════════════════════════════════════════════════════
-     10. CONTACT FORM (if exists on this page)
-         Handles form submission via Formspree
+     10. MULTI-STEP LUXURY BOOKING WIZARD + LIVE CALENDAR AVAILABILITY
      ══════════════════════════════════════════════════════════════════════════ */
-
   const contactForm = document.getElementById('contactForm');
 
   if (contactForm) {
-    contactForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRJX-9JaUYmh_ufXo9fnsUdPHrqV_ZS7tI9Z412QeK_BmO6YGZ3mmnq6Bb-IpzruZ0/exec"; 
 
-      const submitBtn  = contactForm.querySelector('[type="submit"]');
-      const formData   = new FormData(contactForm);
-      const formAction = contactForm.action || contactForm.getAttribute('action'); // Your Formspree endpoint
+    const step1 = document.getElementById('wizard-step-1');
+    const step2 = document.getElementById('wizard-step-2');
+    const step3 = document.getElementById('wizard-step-3');
+    const successScreen = document.getElementById('wizard-success');
+    const progressTracking = document.querySelector('.wizard-progress');
+    
+    const badge1 = document.getElementById('step-badge-1');
+    const badge2 = document.getElementById('step-badge-2');
+    const badge3 = document.getElementById('step-badge-3');
 
-      if (!submitBtn || !formAction) return;
+    const sessionCards = document.querySelectorAll('.session-card');
+    const sessionInput = document.getElementById('session_type');
+    
+    const nextBtn2 = document.getElementById('nextBtn-2');
+    const prevBtn2 = document.getElementById('prevBtn-2');
+    const prevBtn3 = document.getElementById('prevBtn-3');
+    const heading2 = document.getElementById('step-2-heading');
+    const previewContainer = document.getElementById('preview-container');
 
-      // Update button state
-      submitBtn.textContent = 'Sending...';
-      submitBtn.disabled    = true;
+    let customCalendarInstance = null;
 
+    // Initialize Premium Calendar with Auto-Live Availability System
+    function initializePremiumCalendar(disabledDatesArray = []) {
+      customCalendarInstance = flatpickr("#preferred_date", {
+        dateFormat: "Y-m-d",
+        minDate: "today", // Prevents picking historical dates
+        disable: disabledDatesArray, // Auto-locks dates returned from your Google Sheet row scan
+        locale: { firstDayOfWeek: 1 },
+        onChange: function(selectedDates, dateStr) {
+          console.log("Selected target date slot:", dateStr);
+        }
+      });
+    }
+
+    // Pre-Fetch Booked Dates via GET Pipeline on Boot
+    async function fetchStudioAvailability() {
       try {
-        const response = await fetch(formAction, {
-          method: 'POST',
-          body:   formData,
-          headers: { 'Accept': 'application/json' },
-        });
-
-        if (response.ok) {
-          // Success state
-          showFormMessage(contactForm, 'success',
-            'Your message was sent! I\'ll be in touch within 48 hours.');
-          contactForm.reset();
+        const response = await fetch(APPS_SCRIPT_URL);
+        const data = await response.json();
+        if (data.success && data.bookedDates) {
+          console.log("Loaded unavailable dates directly from Google Sheets:", data.bookedDates);
+          initializePremiumCalendar(data.bookedDates);
         } else {
-          throw new Error('Submission failed');
+          initializePremiumCalendar([]);
         }
       } catch (err) {
-        showFormMessage(contactForm, 'error',
-          'Something went wrong. Please email me directly at hello@ariasommers.com');
-      } finally {
-        submitBtn.textContent = 'Send Message';
-        submitBtn.disabled    = false;
+        console.warn("Could not sync live availability rows, running offline configuration mode:", err);
+        initializePremiumCalendar([]);
+      }
+    }
+    
+    // Trigger live background fetch immediately
+    fetchStudioAvailability();
+
+    // Step 1: Selection Cards Logic
+    sessionCards.forEach(card => {
+      card.addEventListener('click', () => {
+        sessionCards.forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        
+        const selection = card.getAttribute('data-value');
+        sessionInput.value = selection;
+        heading2.textContent = `Tell me about your ${selection.toLowerCase()} session`;
+
+        setTimeout(() => { goToStep(2); }, 350);
+      });
+    });
+
+    prevBtn2.addEventListener('click', () => goToStep(1));
+    prevBtn3.addEventListener('click', () => goToStep(2));
+
+    nextBtn2.addEventListener('click', () => {
+      const inputs = step2.querySelectorAll('input[required], textarea[required]');
+      let allValid = true;
+      
+      inputs.forEach(input => {
+        if (!input.checkValidity()) {
+          input.reportValidity();
+          allValid = false;
+        }
+      });
+
+      if (allValid) {
+        generatePreview();
+        goToStep(3);
       }
     });
-  }
 
-  function showFormMessage(form, type, message) {
-    // Remove any existing message
-    const existing = form.querySelector('.form-message');
-    if (existing) existing.remove();
+    function goToStep(stepNum) {
+      step1.classList.remove('active');
+      step2.classList.remove('active');
+      step3.classList.remove('active');
 
-    const msg = document.createElement('p');
-    msg.className  = `form-message ${type}`;
-    msg.textContent = message;
-    form.appendChild(msg);
+      const badges = [badge1, badge2, badge3];
+      badges.forEach(b => {
+        if (b) {
+          b.style.color = 'var(--stone)';
+          b.style.fontWeight = '400';
+          b.style.borderBottom = 'none';
+          b.style.opacity = '0.4';
+        }
+      });
+
+      if (stepNum === 1) {
+        step1.classList.add('active');
+        badge1.style.color = 'var(--gold)';
+        badge1.style.fontWeight = '600';
+        badge1.style.borderBottom = '2px solid var(--gold)';
+        badge1.style.opacity = '1';
+      } else if (stepNum === 2) {
+        step2.classList.add('active');
+        badge2.style.color = 'var(--gold)';
+        badge2.style.fontWeight = '600';
+        badge2.style.borderBottom = '2px solid var(--gold)';
+        badge2.style.opacity = '1';
+      } else if (stepNum === 3) {
+        step3.classList.add('active');
+        badge3.style.color = 'var(--gold)';
+        badge3.style.fontWeight = '600';
+        badge3.style.borderBottom = '2px solid var(--gold)';
+        badge3.style.opacity = '1';
+      }
+    }
+
+    function generatePreview() {
+      const formData = new FormData(contactForm);
+      previewContainer.innerHTML = `
+        <div><strong>Session Selection:</strong> ${formData.get('session_type')}</div>
+        <div><strong>Full Name:</strong> ${formData.get('name')}</div>
+        <div><strong>Email Address:</strong> ${formData.get('email')}</div>
+        <div><strong>Phone Number:</strong> ${formData.get('phone') || 'Not provided'}</div>
+        <div><strong>Requested Date:</strong> ${formData.get('preferred_date')}</div>
+        <div><strong>Location / Venue:</strong> ${formData.get('location') || 'Not provided'}</div>
+        <div style="margin-top: 0.75rem; border-top: 1px solid rgba(44,44,44,0.08); padding-top: 0.75rem;">
+          <strong>Vision Details & Notes:</strong><br>${formData.get('message').replace(/\n/g, '<br>')}
+        </div>
+      `;
+    }
+
+    // Transmission Protocol & Inline Success Routing
+    contactForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn');
+
+      submitBtn.textContent = 'Securing Your Date...';
+      submitBtn.disabled = true;
+
+      const formData = new FormData(contactForm);
+      const payload = {
+        name: formData.get('name'),
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+        session_type: formData.get('session_type'),
+        preferred_date: formData.get('preferred_date'),
+        location: formData.get('location'),
+        message: formData.get('message')
+      };
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'cors',
+          body: JSON.stringify(payload),
+          headers: { 'Content-Type': 'text/plain' }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Display reference ID onto editorial success block
+          document.getElementById('success-ref-id').textContent = result.booking_id;
+          
+          // Smooth UI Swap
+          contactForm.style.display = 'none';
+          progressTracking.style.display = 'none';
+          successScreen.style.display = 'block';
+          
+          // Auto scroll to top of inquiry window smoothly
+          successScreen.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          throw new Error(result.error || 'The server rejected the inquiry structure.');
+        }
+      } catch (err) {
+        console.error("Submission Error Details:", err);
+        alert(`Submission issue: ${err.message}. Please reach out to hello@dianaobermeyer.com.`);
+        submitBtn.textContent = 'Submit Booking Request';
+        submitBtn.disabled = false;
+      }
+    });
   }
 
 }); // end DOMContentLoaded
