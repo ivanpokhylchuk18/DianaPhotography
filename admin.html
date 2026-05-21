@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Studio Control Centre — Diana Obermeyer Photography</title>
+  <style>
+    :root {
+      --bg-color: #FAF7F4;
+      --card-bg: #FFFFFF;
+      --text-main: #2C2C2C;
+      --text-muted: #8A8278;
+      --accent-gold: #B8976A;
+      --border-color: rgba(44,44,44,0.08);
+      --dark-accent: #1E1612;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* Luxury Header */
+    header {
+      text-align: center;
+      margin-bottom: 50px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 30px;
+    }
+    header h1 {
+      font-family: 'Georgia', serif;
+      font-size: 28px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    header p {
+      font-family: 'Georgia', serif;
+      font-style: italic;
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: var(--accent-gold);
+      text-transform: uppercase;
+      margin-top: 5px;
+    }
+
+    /* Password Gate Panel */
+    #authGate {
+      max-width: 400px;
+      margin: 100px auto;
+      background: var(--card-bg);
+      padding: 40px;
+      border: 1px solid var(--border-color);
+      text-align: center;
+    }
+
+    /* Standard Inputs & Buttons */
+    input, select, textarea {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0 20px 0;
+      border: 1px solid var(--border-color);
+      background: #FFF;
+      font-size: 14px;
+      color: var(--text-main);
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent-gold);
+    }
+    label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+      display: block;
+      text-align: left;
+    }
+    button {
+      background: var(--text-main);
+      color: #FFF;
+      border: none;
+      padding: 14px 28px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 12px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.2s ease;
+    }
+    button:hover { background: var(--accent-gold); }
+
+    /* Dashboard Layout Tabs */
+    #dashboard { display: none; }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 40px;
+    }
+    .tab-btn {
+      background: none;
+      color: var(--text-muted);
+      border: none;
+      padding: 15px 30px;
+      width: auto;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .tab-btn.active {
+      color: var(--text-main);
+      border-bottom: 2px solid var(--accent-gold);
+    }
+
+    .panel {
+      display: none;
+      background: var(--card-bg);
+      padding: 40px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 30px;
+    }
+    .panel.active { display: block; }
+    
+    h2 {
+      font-family: 'Georgia', serif;
+      font-weight: 300;
+      font-size: 22px;
+      margin-bottom: 25px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    /* System Status Messages */
+    .msg {
+      padding: 12px;
+      margin: 15px 0;
+      font-size: 13px;
+      display: none;
+    }
+    .msg.success { background: #EAF5EA; color: #2E662E; display: block; }
+    .msg.error { background: #FDF0F0; color: #9C2A2A; display: block; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Diana Obermeyer</h1>
+      <p>Studio Control Centre</p>
+    </header>
+
+    <div id="authGate">
+      <label for="gateToken">Enter Private Passphrase</label>
+      <input type="password" id="gateToken" placeholder="••••••••••••">
+      <button onclick="attemptLogin()">Verify Identity</button>
+      <div id="gateMsg" class="msg"></div>
+    </div>
+
+    <div id="dashboard">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('bookingsPanel', this)">Manage Bookings</button>
+        <button class="tab-btn" onclick="switchTab('galleryPanel', this)">Portfolio Manager</button>
+      </div>
+
+      <div id="bookingsPanel" class="panel active">
+        <h2>Update Booking Matrix</h2>
+        <form id="bookingForm" onsubmit="handleBookingUpdate(event)">
+          <label for="bId">Target Booking ID</label>
+          <input type="text" id="bId" placeholder="e.g., DO-123456" required>
+
+          <label for="bStatus">Client Status</label>
+          <select id="bStatus">
+            <option value="Pending">Pending Evaluation</option>
+            <option value="Confirmed">Confirmed / Retainer Settled</option>
+            <option value="Completed">Session Completed</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+
+          <label for="bNotes">Private Studio Notes (Venue details, pricing structures, style codes)</label>
+          <textarea id="bNotes" rows="4" placeholder="Type private records here..."></textarea>
+
+          <button type="submit">Commit Status Change</button>
+        </form>
+        <div id="bookingMsg" class="msg"></div>
+      </div>
+
+      <div id="galleryPanel" class="panel">
+        <h2>Syndicate Portfolio Images</h2>
+        <form id="galleryForm" onsubmit="handleGalleryAddition(event)">
+          <label for="gUrl">Image File Link (Google Drive / CDN / Imgur Link)</label>
+          <input type="url" id="gUrl" placeholder="https://drive.google.com/uc?export=view&id=..." required>
+
+          <label for="gCategory">Visual Focus Segment</label>
+          <select id="gCategory">
+            <option value="Weddings">Weddings</option>
+            <option value="Engagements">Engagements</option>
+            <option value="Portraits">Portraits</option>
+            <option value="Elopements">Elopements</option>
+            <option value="Families">Families</option>
+          </select>
+
+          <label for="gCaption">Hover Text Overlay / Caption (Optional)</label>
+          <input type="text" id="gCaption" placeholder="e.g., Golden Hour Elopement in Newburgh">
+
+          <label for="gAlt">Alt Text (Critical for Image Search Engine Optimization)</label>
+          <input type="text" id="gAlt" placeholder="e.g., Bride and groom hugging during sunset field photography" required>
+
+          <button type="submit">Publish to Live Portfolio</button>
+        </form>
+        <div id="galleryMsg" class="msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ══════════════════════════════════════════════════════════════════════════
+    // INTERACTION AND BACKEND LOGIC CONFIGURATION
+    // ══════════════════════════════════════════════════════════════════════════
+    
+    // 1. PASTE YOUR EXACT GOOGLE APPS SCRIPT EXEC WEB APP URL HERE:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXAzeBYwY-hKuAGcVaWo32raHnTwcrBbx6p39hAjOpfkYTLmurypRkjOXgK4VGuE2t/exec";
+
+    let adminToken = "";
+
+    function attemptLogin() {
+      const tokenInput = document.getElementById("gateToken").value;
+      const msgDiv = document.getElementById("gateMsg");
+      
+      if (!tokenInput) {
+        showMsg(msgDiv, "error", "Passphrase missing.");
+        return;
+      }
+
+      // Simple secure verification pass down to memory
+      adminToken = tokenInput;
+      document.getElementById("authGate").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+    }
+
+    function switchTab(panelId, btnElement) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      
+      document.getElementById(panelId).classList.add('active');
+      btnElement.classList.add('active');
+    }
+
+    // SEND EDIT COMMAND TO UPDATE BOOKINGS SHEET
+    async function handleBookingUpdate(e) {
+      e.preventDefault();
+      const msgDiv = document.getElementById("bookingMsg");
+      showMsg(msgDiv, "success", "Processing database rewrite...");
+
+      const payload = {
+        action: "admin_update_booking",
+        token: adminToken,
+        booking_id: document.getElementById("bId").value.trim(),
+        status: document.getElementById("bStatus").value,
+        notes: document.getElementById("bNotes").value.trim()
+      };
+
+      try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const res = await response.json();
+        
+        if (res.success) {
+          showMsg(msgDiv, "success", "Master Sheet records updated successfully!");
+          document.getElementById("bookingForm").reset();
+        } else {
+          showMsg(msgDiv, "error", res.error || "Execution denied. Is your passphrase correct?");
+        }
+      } catch (err) {
+        showMsg(msgDiv, "error", "Network connection timeout error.");
+      }
+    }
+
+    // SEND COMMAND TO APPEND NEW ENTRY TO PORTFOLIO/GALLERY SHEET
+    async function handleGalleryAddition(e) {
+      e.preventDefault();
+      const msgDiv = document.getElementById("galleryMsg");
+      showMsg(msgDiv, "success", "Uploading image metadata to cloud database...");
+
+      const payload = {
+        action: "admin_add_gallery",
+        token: adminToken,
+        photo_url: document.getElementById("gUrl").value.trim(),
+        category: document.getElementById("gCategory").value,
+        caption: document.getElementById("gCaption").value.trim(),
+        alt_text: document.getElementById("gAlt").value.trim()
+      };
+
+      try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const res = await response.json();
+
+        if (res.success) {
+          showMsg(msgDiv, "success", "Photo successfully syndicated live onto the Portfolio page!");
+          document.getElementById("galleryForm").reset();
+        } else {
+          showMsg(msgDiv, "error", res.error || "Execution denied. Is your passphrase correct?");
+        }
+      } catch (err) {
+        showMsg(msgDiv, "error", "Network connection timeout error.");
+      }
+    }
+
+    function showMsg(element, type, text) {
+      element.className = "msg " + type;
+      element.textContent = text;
+    }
+  </script>
+</body>
+</html>

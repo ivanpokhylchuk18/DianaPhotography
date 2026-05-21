@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const contactForm = document.getElementById('contactForm');
 
   if (contactForm) {
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRJX-9JaUYmh_ufXo9fnsUdPHrqV_ZS7tI9Z412QeK_BmO6YGZ3mmnq6Bb-IpzruZ0/exec"; 
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXAzeBYwY-hKuAGcVaWo32raHnTwcrBbx6p39hAjOpfkYTLmurypRkjOXgK4VGuE2t/exec"; 
 
     const step1 = document.getElementById('wizard-step-1');
     const step2 = document.getElementById('wizard-step-2');
