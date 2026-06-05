@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Private Client Gallery — Diana Obermeyer Photography</title>
+  <style>
+    :root {
+      --bg-color: #FAF7F4;
+      --card-bg: #FFFFFF;
+      --text-main: #2C2C2C;
+      --text-muted: #8A8278;
+      --accent-gold: #B8976A;
+      --border-color: rgba(44,44,44,0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-color); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; padding: 40px 20px; font-weight: 500; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    
+    header { text-align: center; margin-bottom: 50px; border-bottom: 1px solid var(--border-color); padding-bottom: 30px; }
+    header h1 { font-family: Georgia, serif; font-size: 28px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase; }
+    header p { font-family: Georgia, serif; font-style: italic; font-size: 13px; letter-spacing: 4px; color: var(--accent-gold); text-transform: uppercase; margin-top: 6px; }
+
+    /* Auth Password Gate */
+    #authGate { max-width: 400px; margin: 100px auto; background: white; padding: 45px; border: 1px solid var(--border-color); text-align: left; }
+    label { display: block; margin-bottom: 8px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
+    input { width: 100%; padding: 14px; margin-bottom: 20px; border: 1px solid var(--border-color); background: white; color: var(--text-main); font-size: 14px; }
+    button { background: var(--text-main); color: white; border: none; padding: 15px 28px; width: 100%; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; font-size: 11px; transition: .2s ease; }
+    button:hover { background: var(--accent-gold); }
+    
+    .msg { display: none; padding: 14px; margin-top: 18px; font-size: 13px; text-align: center; }
+    .msg.error { display: block; background: #FCEAEA; color: #9C2A2A; }
+    .msg.success { display: block; background: #EAF5EA; color: #2E662E; }
+
+    /* Protected Gallery Content View */
+    #galleryView { display: none; }
+    .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; margin-top: 40px; }
+    
+    .gallery-item { position: relative; overflow: hidden; background: #eaeaea; aspect-ratio: 3/2; cursor: pointer; border: 1px solid var(--border-color); }
+    .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease, filter 0.5s ease; opacity: 0; }
+    .gallery-item:hover img { transform: scale(1.03); }
+
+    /* Lightbox Modal overlay */
+    .lightbox { position: fixed; inset: 0; background: rgba(26, 26, 26, 0.95); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .lightbox.active { display: flex; }
+    .lightbox-img { max-width: 90vw; max-height: 85vh; object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .lightbox-close { position: absolute; top: 25px; right: 30px; color: #fff; font-size: 35px; cursor: pointer; background: transparent; border: none; width: auto; padding: 0; }
+    .lightbox-close:hover { color: var(--accent-gold); }
+
+    @media(max-width: 768px) {
+      body { padding: 20px 10px; }
+      .gallery-grid { grid-template-columns: 1fr; gap: 15px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1 id="galleryTitle">Private Collection</h1>
+    <p id="gallerySubtitle">Diana Obermeyer Photography</p>
+  </header>
+
+  <!-- Password Entry Gate -->
+  <div id="authGate">
+    <label for="galleryPass">Enter Access Password</label>
+    <input type="password" id="galleryPass" placeholder="••••••••••••">
+    <button id="unlockBtn">View Protected Gallery</button>
+    <div id="gateMsg" class="msg"></div>
+  </div>
+
+  <!-- Protected Visual Assets View -->
+  <div id="galleryView">
+    <div class="gallery-grid" id="photoGrid"></div>
+  </div>
+</div>
+
+<!-- Lightbox Modal Viewer -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt="Full size print review Asset">
+</div>
+
+<script>
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynTYCRDV3lStEg79LHZs9LwNbA0EQrTigLP-u41ffzSjLTFTEHu2iKf4LQCLYRY-Rz/exec";
+
+// Extract URL parameters (?id=XXXX)
+const urlParams = new URLSearchParams(window.location.search);
+const galleryId = urlParams.get('id');
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (!galleryId) {
+    document.getElementById("authGate").style.display = "none";
+    showMsg("error", "Invalid or missing link parameters. Please double-check the URL provided by your photographer.");
+    return;
+  }
+  
+  // Attach Event Listeners
+  document.getElementById("unlockBtn").addEventListener("click", unlockGallery);
+  document.getElementById("galleryPass").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") unlockGallery();
+  });
+});
+
+async function unlockGallery() {
+  const password = document.getElementById("galleryPass").value.trim();
+  if (!password) { 
+    showMsg("error", "Password field cannot be blank."); 
+    return; 
+  }
+  
+  showMsg("success", "Verifying credentials...");
+  const btn = document.getElementById("unlockBtn");
+  btn.disabled = true;
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      mode: "cors",
+      headers: { "Content-Type": "text/plain" }, // Crucial for routing cleanly to Google Apps Script
+      body: JSON.stringify({
+        action: "get_gallery",
+        gallery_id: galleryId,
+        password: password
+      })
+    });
+    
+    const res = await response.json();
+
+    if (res.success) {
+      document.getElementById("authGate").style.display = "none";
+      document.getElementById("galleryView").style.display = "block";
+      
+      if (res.gallery && res.gallery.client_name) {
+        document.getElementById("galleryTitle").textContent = res.gallery.client_name;
+      }
+      
+      renderPhotos(res.images);
+    } else {
+      showMsg("error", res.error || "Incorrect password. Access Denied.");
+      btn.disabled = false;
+    }
+  } catch(err) {
+    showMsg("error", "Connection error. Please try again later.");
+    btn.disabled = false;
+  }
+}
+
+function renderPhotos(images) {
+  const grid = document.getElementById("photoGrid");
+  grid.innerHTML = "";
+  
+  if (!images || images.length === 0) {
+    grid.innerHTML = "<p style='grid-column: 1/-1; text-align:center; color:var(--text-muted); font-style: italic;'>Images are currently processing. Check back shortly!</p>";
+    return;
+  }
+
+  images.forEach(imgObj => {
+    const item = document.createElement("div");
+    item.className = "gallery-item";
+    item.onclick = () => openLightbox(imgObj.url);
+    
+    const img = document.createElement("img");
+    img.src = imgObj.url;
+    img.alt = imgObj.filename || "Client Session Master Print Review Portfolio Asset";
+    img.loading = "lazy";
+    
+    // Smooth opacity reveal on load completion
+    img.onload = () => img.style.opacity = "1";
+    
+    item.appendChild(img);
+    grid.appendChild(item);
+  });
+}
+
+function showMsg(type, text) {
+  const msgDiv = document.getElementById("gateMsg");
+  msgDiv.className = "msg " + type;
+  msgDiv.textContent = text;
+}
+
+// Lightbox controller functions
+function openLightbox(url) {
+  const lb = document.getElementById("lightbox");
+  const lbImg = document.getElementById("lightboxImg");
+  lbImg.src = url;
+  lb.classList.add("active");
+  document.body.style.overflow = "hidden"; // block background scroll creep
+}
+
+function closeLightbox() {
+  document.getElementById("lightbox").classList.remove("active");
+  document.body.style.overflow = "";
+}
+</script>
+</body>
+</html>

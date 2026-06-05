@@ -35,6 +35,7 @@ html {
 
 body {
   font-family: var(--font-body);
+  font-size: 16px;
   background-color: var(--ivory);
   color: var(--charcoal);
   overflow-x: hidden;
@@ -62,9 +63,9 @@ a { text-decoration: none; color: inherit; }
 
 .section-label {
   font-family: var(--font-body);
-  font-size: 0.65rem;
-  font-weight: 400;
-  letter-spacing: 0.28em;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--gold);
   margin-bottom: 1rem;
@@ -93,11 +94,11 @@ a { text-decoration: none; color: inherit; }
 }
 
 .section-body {
-  font-size: 0.9rem;
-  font-weight: 300;
+  font-size: 1rem;
+  font-weight: 400;
   color: var(--stone);
   line-height: 1.9;
-  max-width: 480px;
+  max-width: 560px;
 }
 
 /* Buttons */
@@ -182,16 +183,18 @@ a { text-decoration: none; color: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.5rem 4rem;
+  padding: 1.5rem 3rem;
+  background: rgba(248, 245, 240, 0.98);
+  box-shadow: 0 1px 15px rgba(44, 44, 44, 0.08);
   transition: background 0.5s ease, padding 0.5s ease, box-shadow 0.5s ease;
 }
 
 #navbar.scrolled {
-  background: rgba(248, 245, 240, 0.96);
+  background: rgba(248, 245, 240, 0.98);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  padding: 1rem 4rem;
-  box-shadow: 0 1px 0 rgba(44,44,44,0.07);
+  padding: 1.2rem 3rem;
+  box-shadow: 0 1px 15px rgba(44, 44, 44, 0.08);
 }
 
 /* Logo */
@@ -203,16 +206,17 @@ a { text-decoration: none; color: inherit; }
 }
 .nav-logo-main {
   font-family: var(--font-display);
-  font-weight: 300;
-  font-size: 1.2rem;
-  letter-spacing: 0.08em;
-  color: white;
+  font-weight: 500;
+  font-size: 1.35rem;
+  letter-spacing: 0.06em;
+  color: var(--charcoal);
   transition: color 0.4s;
 }
 .nav-logo-sub {
   font-family: var(--font-script);
-  font-size: 0.85rem;
-  color: rgba(255,255,255,0.7);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--stone);
   transition: color 0.4s;
 }
 #navbar.scrolled .nav-logo-main { color: var(--charcoal); }
@@ -226,11 +230,11 @@ a { text-decoration: none; color: inherit; }
 }
 
 .nav-links a {
-  font-size: 0.65rem;
-  font-weight: 400;
-  letter-spacing: 0.18em;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.85);
+  color: var(--charcoal);
   position: relative;
   transition: color 0.3s;
 }
@@ -250,9 +254,11 @@ a { text-decoration: none; color: inherit; }
 
 /* CTA pill */
 .nav-cta {
-  border: 1px solid rgba(255,255,255,0.45) !important;
-  padding: 9px 24px;
-  color: white !important;
+  border: 1px solid var(--charcoal) !important;
+  padding: 11px 26px;
+  color: var(--charcoal) !important;
+  font-size: 0.95rem;
+  font-weight: 700;
   transition: background 0.4s, color 0.4s, border-color 0.4s !important;
 }
 .nav-cta::after { display: none !important; }
@@ -277,7 +283,7 @@ a { text-decoration: none; color: inherit; }
 .hamburger span {
   display: block;
   width: 24px; height: 1px;
-  background: white;
+  background: var(--charcoal);
   transition: all 0.4s var(--ease-luxury);
   transform-origin: center;
 }
