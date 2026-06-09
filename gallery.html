@@ -37,10 +37,10 @@
     .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; margin-top: 40px; }
     
     .gallery-item { position: relative; overflow: hidden; background: #eaeaea; aspect-ratio: 3/2; cursor: pointer; border: 1px solid var(--border-color); }
-    .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease, filter 0.5s ease; opacity: 0; }
+    .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease, opacity 0.5s ease; opacity: 0; }
     .gallery-item:hover img { transform: scale(1.03); }
 
-    /* Lightbox Modal overlay */
+    /* Lightbox Modal viewer */
     .lightbox { position: fixed; inset: 0; background: rgba(26, 26, 26, 0.95); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
     .lightbox.active { display: flex; }
     .lightbox-img { max-width: 90vw; max-height: 85vh; object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
@@ -78,120 +78,123 @@
 <!-- Lightbox Modal Viewer -->
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
   <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
-  <img class="lightbox-img" id="lightboxImg" src="" alt="Full size print review Asset">
+  <img class="lightbox-img" id="lightboxImg" src="" alt="Full size print review asset">
 </div>
 
 <script>
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynTYCRDV3lStEg79LHZs9LwNbA0EQrTigLP-u41ffzSjLTFTEHu2iKf4LQCLYRY-Rz/exec";
+  // ⚠️ IMPORTANT: Replace this URL with the EXACT same URL used in your admin.html
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyKQjD9xQvt4fBl3z79dMEP3nU8f6qXLBrtS2cFLHa7897kHnzbtHm66WdBfhT3T1rx/exec";
 
-// Extract URL parameters (?id=XXXX)
-const urlParams = new URLSearchParams(window.location.search);
-const galleryId = urlParams.get('id');
+  const urlParams = new URLSearchParams(window.location.search);
+  const galleryId = urlParams.get('id');
 
-document.addEventListener("DOMContentLoaded", () => {
-  if (!galleryId) {
-    document.getElementById("authGate").style.display = "none";
-    showMsg("error", "Invalid or missing link parameters. Please double-check the URL provided by your photographer.");
-    return;
-  }
-  
-  // Attach Event Listeners
-  document.getElementById("unlockBtn").addEventListener("click", unlockGallery);
-  document.getElementById("galleryPass").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") unlockGallery();
-  });
-});
-
-async function unlockGallery() {
-  const password = document.getElementById("galleryPass").value.trim();
-  if (!password) { 
-    showMsg("error", "Password field cannot be blank."); 
-    return; 
-  }
-  
-  showMsg("success", "Verifying credentials...");
-  const btn = document.getElementById("unlockBtn");
-  btn.disabled = true;
-
-  try {
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      mode: "cors",
-      headers: { "Content-Type": "text/plain" }, // Crucial for routing cleanly to Google Apps Script
-      body: JSON.stringify({
-        action: "get_gallery",
-        gallery_id: galleryId,
-        password: password
-      })
-    });
-    
-    const res = await response.json();
-
-    if (res.success) {
+  document.addEventListener("DOMContentLoaded", () => {
+    if (!galleryId) {
       document.getElementById("authGate").style.display = "none";
-      document.getElementById("galleryView").style.display = "block";
-      
-      if (res.gallery && res.gallery.client_name) {
-        document.getElementById("galleryTitle").textContent = res.gallery.client_name;
+      showMsg("error", "Invalid or missing gallery link. Please check the URL provided by your photographer.");
+      return;
+    }
+    document.getElementById("unlockBtn").addEventListener("click", unlockGallery);
+    document.getElementById("galleryPass").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") unlockGallery();
+    });
+  });
+
+  async function unlockGallery() {
+    const password = document.getElementById("galleryPass").value.trim();
+    if (!password) {
+      showMsg("error", "Password cannot be blank.");
+      return;
+    }
+
+    showMsg("success", "Verifying credentials...");
+    const btn = document.getElementById("unlockBtn");
+    btn.disabled = true;
+
+    try {
+      const response = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "get_gallery",
+          gallery_id: galleryId,
+          password: password
+        })
+      });
+
+      const res = await response.json();
+      console.log("Gallery API response:", res); // Check console for debugging
+
+      if (res.success) {
+        document.getElementById("authGate").style.display = "none";
+        document.getElementById("galleryView").style.display = "block";
+
+        if (res.gallery && res.gallery.client_name) {
+          document.getElementById("galleryTitle").textContent = res.gallery.client_name;
+        }
+
+        if (res.images && res.images.length > 0) {
+          renderPhotos(res.images);
+        } else {
+          document.getElementById("photoGrid").innerHTML = `<p style="grid-column:1/-1; text-align:center;">No images have been added to this gallery yet. Please contact your photographer.</p>`;
+        }
+      } else {
+        showMsg("error", res.error || "Incorrect password or gallery does not exist.");
+        btn.disabled = false;
       }
-      
-      renderPhotos(res.images);
-    } else {
-      showMsg("error", res.error || "Incorrect password. Access Denied.");
+    } catch (err) {
+      console.error("Fetch error:", err);
+      showMsg("error", "Network error. Please try again later.");
       btn.disabled = false;
     }
-  } catch(err) {
-    showMsg("error", "Connection error. Please try again later.");
-    btn.disabled = false;
-  }
-}
-
-function renderPhotos(images) {
-  const grid = document.getElementById("photoGrid");
-  grid.innerHTML = "";
-  
-  if (!images || images.length === 0) {
-    grid.innerHTML = "<p style='grid-column: 1/-1; text-align:center; color:var(--text-muted); font-style: italic;'>Images are currently processing. Check back shortly!</p>";
-    return;
   }
 
-  images.forEach(imgObj => {
-    const item = document.createElement("div");
-    item.className = "gallery-item";
-    item.onclick = () => openLightbox(imgObj.url);
-    
-    const img = document.createElement("img");
-    img.src = imgObj.url;
-    img.alt = imgObj.filename || "Client Session Master Print Review Portfolio Asset";
-    img.loading = "lazy";
-    
-    // Smooth opacity reveal on load completion
-    img.onload = () => img.style.opacity = "1";
-    
-    item.appendChild(img);
-    grid.appendChild(item);
-  });
-}
+  function renderPhotos(images) {
+    const grid = document.getElementById("photoGrid");
+    grid.innerHTML = "";
 
-function showMsg(type, text) {
-  const msgDiv = document.getElementById("gateMsg");
-  msgDiv.className = "msg " + type;
-  msgDiv.textContent = text;
-}
+    images.forEach(imgObj => {
+      const item = document.createElement("div");
+      item.className = "gallery-item";
+      item.onclick = () => openLightbox(imgObj.url);
 
-// Lightbox controller functions
-function openLightbox(url) {
-  const lb = document.getElementById("lightbox");
-  const lbImg = document.getElementById("lightboxImg");
-  lbImg.src = url;
-  lb.classList.add("active");
-  document.body.style.overflow = "hidden"; // block background scroll creep
-}
+      const img = document.createElement("img");
+      img.src = imgObj.url;
+      img.alt = imgObj.filename || "Client gallery image";
+      img.loading = "lazy";
 
-function closeLightbox() {
-  document.getElementById("lightbox").classList.remove("active");
-  document.body.style.overflow = "";
-}
+      img.onload = () => img.style.opacity = "1";
+      img.onerror = () => {
+        console.warn("Failed to load image:", imgObj.url);
+        img.style.opacity = "1";
+        img.style.backgroundColor = "#f0f0f0";
+        img.alt = "Image could not be loaded";
+      };
+
+      item.appendChild(img);
+      grid.appendChild(item);
+    });
+  }
+
+  function showMsg(type, text) {
+    const msgDiv = document.getElementById("gateMsg");
+    msgDiv.className = "msg " + type;
+    msgDiv.textContent = text;
+  }
+
+  function openLightbox(url) {
+    const lb = document.getElementById("lightbox");
+    const lbImg = document.getElementById("lightboxImg");
+    lbImg.src = url;
+    lb.classList.add("active");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeLightbox() {
+    document.getElementById("lightbox").classList.remove("active");
+    document.body.style.overflow = "";
+  }
 </script>
 </body>
 </html>

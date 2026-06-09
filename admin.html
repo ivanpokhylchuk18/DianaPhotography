@@ -28,7 +28,7 @@
     button:disabled { opacity: .6; cursor: not-allowed; }
     #dashboard { display: none; }
     .tabs { display: flex; gap: 10px; margin-bottom: 35px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; flex-wrap: wrap; }
-    .tab-btn { width: auto; background: transparent; color: var(--text-muted); padding: 12px 22px; }
+    .tab-btn { width: auto; background: transparent; color: var(--text-muted); padding: 12px 22px; border: none; cursor: pointer; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
     .tab-btn.active { background: var(--text-main); color: white; }
     .panel { display: none; background: white; padding: 40px; border: 1px solid var(--border-color); }
     .panel.active { display: block; }
@@ -48,7 +48,7 @@
     .booking-status-confirmed { background: #EAF5EA; color: #2E662E; }
     .booking-status-completed { background: #E7F0FF; color: #2356A8; }
     .booking-status-cancelled { background: #FCEAEA; color: #9C2A2A; }
-    .action-btn { width: auto; background: white; color: var(--text-main); border: 1px solid var(--border-color); padding: 10px 16px; font-size: 11px; letter-spacing: 1px; }
+    .action-btn { width: auto; background: white; color: var(--text-main); border: 1px solid var(--border-color); padding: 10px 16px; font-size: 11px; letter-spacing: 1px; cursor: pointer; }
     .action-btn:hover { background: var(--text-main); color: white; }
     .drop-zone { border: 2px dashed var(--border-color); padding: 45px 20px; text-align: center; background: #FAF9F7; margin-bottom: 20px; cursor: pointer; transition: .2s ease; }
     .drop-zone.dragover { border-color: var(--accent-gold); background: #F3EFEA; }
@@ -71,19 +71,21 @@
     .modal { background: white; width: 95%; max-width: 720px; padding: 40px; max-height: 90vh; overflow-y: auto; animation: modalFade .25s ease; }
     @keyframes modalFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-    .close-modal { width: auto; background: transparent; color: var(--text-muted); font-size: 28px; padding: 0; }
+    .close-modal { width: auto; background: transparent; color: var(--text-muted); font-size: 28px; padding: 0; border: none; cursor: pointer; }
     @media(max-width:768px) { .stats-grid { grid-template-columns: 1fr; } .booking-toolbar { flex-direction: column; } .tabs { flex-direction: column; } }
   </style>
 </head>
 <body>
 <div class="container">
   <header><h1>Diana Obermeyer</h1><p>Studio Control Centre</p></header>
+  
   <div id="authGate">
     <label for="gateToken">Enter Private Dashboard Password</label>
     <input type="password" id="gateToken" placeholder="••••••••••••">
     <button id="loginBtn" onclick="attemptLogin()">Verify Password</button>
     <div id="gateMsg" class="msg"></div>
   </div>
+
   <div id="dashboard">
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('bookingsPanel', this)">Manage Bookings</button>
@@ -92,7 +94,6 @@
       <button class="tab-btn" onclick="switchTab('clientPanel', this)">Client Deliveries</button>
     </div>
 
-    <!-- Bookings Panel (original) -->
     <div id="bookingsPanel" class="panel active">
       <h2>Studio Booking Management</h2>
       <div class="stats-grid">
@@ -116,7 +117,6 @@
       <div id="bookingMsg" class="msg"></div>
     </div>
 
-    <!-- Portfolio Manager Panel (original) -->
     <div id="galleryPanel" class="panel">
       <h2>Portfolio Master Uploader</h2>
       <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 40px;" class="booking-toolbar">
@@ -131,10 +131,15 @@
             <div id="uploadQueue"></div>
             <button onclick="uploadQueueItems()" style="margin-top: 15px;">Publish Assets to Live Portfolio</button>
           </div>
+          <div id="portfolioUploadStatus" class="msg"></div>
         </div>
         <div>
-          <label for="galleryCategory">Portfolio Category Focus</label>
-          <select id="galleryCategory"><option value="Portrait">Portrait</option><option value="Wedding">Wedding</option><option value="Editorial">Editorial</option><option value="Landscape">Landscape</option></select>
+          <label for="galleryCategory">Portfolio Project Folder (Category)</label>
+          <select id="galleryCategory">
+            <option value="weddings">Weddings</option>
+            <option value="engagements">Engagements</option>
+            <option value="portraits">Portraits</option>
+          </select>
           <label for="galleryAltText">SEO Content Tags (Alt Text)</label>
           <input type="text" id="galleryAltText" placeholder="e.g., Luxury portrait inside bridal suite">
           <label for="galleryCaption">Display Title / Caption</label>
@@ -148,7 +153,6 @@
       </div>
     </div>
 
-    <!-- NEW: Client Galleries Panel -->
     <div id="clientGalleriesPanel" class="panel">
       <h2>Password‑Protected Client Galleries</h2>
       <div style="margin-bottom: 2rem;">
@@ -156,13 +160,12 @@
       </div>
       <div class="booking-table-container">
         <table class="booking-table">
-          <thead><tr><th>Gallery ID</th><th>Client</th><th>Password</th><th>Images</th><th>Link</th><th>Actions</th></tr></thead>
-          <tbody id="galleriesList"><tr><td colspan="6">Loading...</td></tr></tbody>
+          <thead><tr><th>Gallery ID</th><th>Client</th><th>Access Password</th><th>Images</th><th>Link</th><th>Actions</th></tr></thead>
+          <tbody id="galleriesList"><tr><td colspan="6">Loading galleries...</td></tr></tbody>
         </table>
       </div>
     </div>
 
-    <!-- Client Deliveries Panel (original) -->
     <div id="clientPanel" class="panel">
       <h2>Client Production Pipelines</h2>
       <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 25px;">Oversee active workflows, invoice milestones, and file deployment targets for active studio accounts.</p>
@@ -172,16 +175,15 @@
 </div>
 
 <div class="modal-overlay" id="bookingModal"><div class="modal"><div class="modal-header"><h2>Booking Details</h2><button class="close-modal" onclick="closeBookingModal()">×</button></div><div id="modalContent"></div></div></div>
-<div class="modal-overlay" id="galleryModal"><div class="modal"><div class="modal-header"><h2>Client Gallery</h2><button class="close-modal" onclick="closeGalleryModal()">×</button></div><div id="galleryModalContent"></div></div></div>
+<div class="modal-overlay" id="galleryModal"><div class="modal"><div class="modal-header"><h2>Client Gallery Workspace</h2><button class="close-modal" onclick="closeGalleryModal()">×</button></div><div id="galleryModalContent"></div></div></div>
 
 <script>
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynTYCRDV3lStEg79LHZs9LwNbA0EQrTigLP-u41ffzSjLTFTEHu2iKf4LQCLYRY-Rz/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyKQjD9xQvt4fBl3z79dMEP3nU8f6qXLBrtS2cFLHa7897kHnzbtHm66WdBfhT3T1rx/exec";
 let adminToken = "";
 let allBookings = [];
 let allReviews = [];
 let uploadQueue = [];
 
-// ---------- Authentication ----------
 async function attemptLogin() {
   const tokenInput = document.getElementById("gateToken").value.trim();
   const msgDiv = document.getElementById("gateMsg");
@@ -201,7 +203,7 @@ async function attemptLogin() {
       document.getElementById("dashboard").style.display = "block";
       initDragAndDrop();
       loadBookings();
-      loadGalleries(); // new
+      loadGalleries();
     } else {
       showMsg(msgDiv, "error", res.error || "Access Denied.");
       loginBtn.disabled = false;
@@ -217,7 +219,6 @@ function switchTab(panelId, btn) {
   btn.classList.add("active");
 }
 
-// ---------- Bookings (original) ----------
 async function loadBookings() {
   const tbody = document.getElementById("bookingTableBody");
   tbody.innerHTML = `<tr><td colspan="5" style="padding:40px; text-align:center;">Loading bookings...</td></tr>`;
@@ -234,20 +235,23 @@ async function loadBookings() {
     }
   } catch(err) { tbody.innerHTML = `<tr><td colspan="5" style="padding:40px; text-align:center; color:#9C2A2A;">Failed to load bookings.</td></tr>`; }
 }
+
 function renderBookings(bookings) {
   const tbody = document.getElementById("bookingTableBody");
   tbody.innerHTML = "";
   bookings.forEach(booking => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td><strong>${booking.name}</strong><br><span style="color:var(--text-muted); font-size:12px;">${booking.email}</span></td><td>${booking.session_type}</td><td>${booking.preferred_date}</td><td><span class="status-pill booking-status-${booking.status.toLowerCase()}">${booking.status}</span></td><td><button class="action-btn" onclick="openBookingModalById('${booking.booking_id}')">View</button></td>`;
+    tr.innerHTML = `<td><strong>${escapeHtml(booking.name)}</strong><br><span style="color:var(--text-muted); font-size:12px;">${escapeHtml(booking.email)}</span></td><td>${escapeHtml(booking.session_type)}</td><td>${escapeHtml(booking.preferred_date)}</td><td><span class="status-pill booking-status-${booking.status.toLowerCase()}">${booking.status}</span></td><td><button class="action-btn" onclick="openBookingModalById('${booking.booking_id}')">View</button></td>`;
     tbody.appendChild(tr);
   });
 }
+
 function updateStats(bookings) {
   document.getElementById("pendingCount").textContent = bookings.filter(b => b.status === "Pending").length;
   document.getElementById("confirmedCount").textContent = bookings.filter(b => b.status === "Confirmed").length;
   document.getElementById("completedCount").textContent = bookings.filter(b => b.status === "Completed").length;
 }
+
 function renderReviews(reviews) {
   const tbody = document.getElementById("reviewsTableBody");
   if (!tbody) return;
@@ -257,10 +261,11 @@ function renderReviews(reviews) {
     const tr = document.createElement("tr");
     const isApproved = String(review.approved).toUpperCase() === "TRUE";
     const isFeatured = String(review.featured).toUpperCase() === "TRUE";
-    tr.innerHTML = `<td><strong>${review.name}</strong></td><td>${review.session_type}</td><td style="max-width:320px; font-size:13px;">${review.message || "<em>No content</em>"}</td><td><span style="color:var(--accent-gold);">${"★".repeat(Number(review.rating))}${"☆".repeat(5-Number(review.rating))}</span></td><td><span class="status-pill ${isApproved ? 'booking-status-confirmed' : 'booking-status-pending'}">${isApproved ? 'Approved' : 'Pending'}</span>${isFeatured ? '<br><span class="status-pill booking-status-completed" style="margin-top:5px;">Featured</span>' : ''}</td><td><div style="display:flex; gap:5px;"><button class="action-btn" onclick="moderateReview(${review.row_index}, ${!isApproved}, ${isFeatured})">${isApproved ? 'Hide' : 'Approve'}</button><button class="action-btn" onclick="moderateReview(${review.row_index}, ${isApproved}, ${!isFeatured})">${isFeatured ? 'Unfeature' : 'Feature'}</button></div></td>`;
+    tr.innerHTML = `<td><strong>${escapeHtml(review.name)}</strong></td><td>${escapeHtml(review.session_type)}</td><td style="max-width:320px; font-size:13px;">${escapeHtml(review.message) || "<em>No content</em>"}</td><td><span style="color:var(--accent-gold);">${"★".repeat(Number(review.rating))}${"☆".repeat(5-Number(review.rating))}</span></td><td><span class="status-pill ${isApproved ? 'booking-status-confirmed' : 'booking-status-pending'}">${isApproved ? 'Approved' : 'Pending'}</span>${isFeatured ? '<br><span class="status-pill booking-status-completed" style="margin-top:5px;">Featured</span>' : ''}</td><td><div style="display:flex; gap:5px;"><button class="action-btn" onclick="moderateReview(${review.row_index}, ${!isApproved}, ${isFeatured})">${isApproved ? 'Hide' : 'Approve'}</button><button class="action-btn" onclick="moderateReview(${review.row_index}, ${isApproved}, ${!isFeatured})">${isFeatured ? 'Unfeature' : 'Feature'}</button></div></td>`;
     tbody.appendChild(tr);
   });
 }
+
 async function moderateReview(rowIndex, approvedState, featuredState) {
   try {
     const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -272,6 +277,7 @@ async function moderateReview(rowIndex, approvedState, featuredState) {
     else alert("Moderation update failed: " + res.error);
   } catch(err) { alert("Network failure."); }
 }
+
 function renderClientDeliveries(bookings) {
   const tbody = document.getElementById("clientDeliveriesTableBody");
   if (!tbody) return;
@@ -282,10 +288,11 @@ function renderClientDeliveries(bookings) {
     const quoteSent = String(client.quote_sent).toUpperCase() === "TRUE";
     const depositPaid = String(client.deposit_paid).toUpperCase() === "TRUE";
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td><strong>${client.name}</strong><br><span style="color:var(--text-muted); font-size:12px;">Ref ID: ${client.booking_id}</span></td><td>${client.session_type}</td><td><span class="status-pill ${quoteSent ? 'booking-status-confirmed' : 'booking-status-pending'}">${quoteSent ? 'Dispatched' : 'Drafting'}</span></td><td><span class="status-pill ${depositPaid ? 'booking-status-confirmed' : 'booking-status-cancelled'}">${depositPaid ? 'Collected' : 'Outstanding'}</span></td><td><span class="status-pill ${client.status === 'Completed' ? 'booking-status-completed' : 'booking-status-confirmed'}">${client.status === 'Completed' ? 'Gallery Dispatched' : 'Asset Editing'}</span></td>`;
+    tr.innerHTML = `<td><strong>${escapeHtml(client.name)}</strong><br><span style="color:var(--text-muted); font-size:12px;">Ref ID: ${client.booking_id}</span></td><td>${escapeHtml(client.session_type)}</td><td><span class="status-pill ${quoteSent ? 'booking-status-confirmed' : 'booking-status-pending'}">${quoteSent ? 'Dispatched' : 'Drafting'}</span></td><td><span class="status-pill ${depositPaid ? 'booking-status-confirmed' : 'booking-status-cancelled'}">${depositPaid ? 'Collected' : 'Outstanding'}</span></td><td><span class="status-pill ${client.status === 'Completed' ? 'booking-status-completed' : 'booking-status-confirmed'}">${client.status === 'Completed' ? 'Gallery Dispatched' : 'Asset Editing'}</span></td>`;
     tbody.appendChild(tr);
   });
 }
+
 document.getElementById("bookingSearch").addEventListener("input", filterBookings);
 document.getElementById("statusFilter").addEventListener("change", filterBookings);
 function filterBookings() {
@@ -294,13 +301,15 @@ function filterBookings() {
   const filtered = allBookings.filter(booking => (booking.name.toLowerCase().includes(search) || booking.email.toLowerCase().includes(search) || booking.booking_id.toLowerCase().includes(search)) && (status === "all" || booking.status === status));
   renderBookings(filtered);
 }
+
 function openBookingModalById(id) { openBookingModal(allBookings.find(b => b.booking_id === id)); }
 function openBookingModal(booking) {
   document.getElementById("bookingModal").classList.add("active");
-  document.getElementById("modalContent").innerHTML = `<div style="margin-bottom:20px;"><strong>Booking ID:</strong> ${booking.booking_id}</div><div style="margin-bottom:20px;"><strong>Client:</strong> ${booking.name}</div><div style="margin-bottom:20px;"><strong>Email:</strong> ${booking.email}</div><div style="margin-bottom:20px;"><strong>Phone:</strong> ${booking.phone || "N/A"}</div><div style="margin-bottom:20px;"><strong>Session:</strong> ${booking.session_type}</div><div style="margin-bottom:20px;"><strong>Date:</strong> ${booking.preferred_date}</div><div style="margin-bottom:20px;"><strong>Location:</strong> ${booking.location || "N/A"}</div><div style="margin-bottom:25px;"><strong>Client Message:</strong><div style="margin-top:10px; padding:20px; background:#FAF9F7; border:1px solid var(--border-color);">${booking.message || "No message provided."}</div></div><label>Status</label><select id="modalStatus"><option value="Pending">Pending</option><option value="Confirmed">Confirmed</option><option value="Completed">Completed</option><option value="Cancelled">Cancelled</option></select><label>Private Notes</label><textarea id="modalNotes" rows="5">${booking.notes || ""}</textarea><button onclick="updateBooking('${booking.booking_id}')">Save Changes</button>`;
+  document.getElementById("modalContent").innerHTML = `<div style="margin-bottom:20px;"><strong>Booking ID:</strong> ${booking.booking_id}</div><div style="margin-bottom:20px;"><strong>Client:</strong> ${escapeHtml(booking.name)}</div><div style="margin-bottom:20px;"><strong>Email:</strong> ${escapeHtml(booking.email)}</div><div style="margin-bottom:20px;"><strong>Phone:</strong> ${booking.phone || "N/A"}</div><div style="margin-bottom:20px;"><strong>Session:</strong> ${booking.session_type}</div><div style="margin-bottom:20px;"><strong>Date:</strong> ${booking.preferred_date}</div><div style="margin-bottom:20px;"><strong>Location:</strong> ${booking.location || "N/A"}</div><div style="margin-bottom:25px;"><strong>Client Message:</strong><div style="margin-top:10px; padding:20px; background:#FAF9F7; border:1px solid var(--border-color);">${(booking.message || "No message provided.").replace(/\n/g, '<br>')}</div></div><label>Status</label><select id="modalStatus"><option value="Pending">Pending</option><option value="Confirmed">Confirmed</option><option value="Completed">Completed</option><option value="Cancelled">Cancelled</option></select><label>Private Notes</label><textarea id="modalNotes" rows="5">${booking.notes || ""}</textarea><button onclick="updateBooking('${booking.booking_id}')">Save Changes</button>`;
   document.getElementById("modalStatus").value = booking.status;
 }
 function closeBookingModal() { document.getElementById("bookingModal").classList.remove("active"); }
+
 async function updateBooking(bookingId) {
   const payload = { action: "admin_update_booking", token: adminToken, booking_id: bookingId, status: document.getElementById("modalStatus").value, notes: document.getElementById("modalNotes").value };
   try {
@@ -310,9 +319,10 @@ async function updateBooking(bookingId) {
     else showMsg(document.getElementById("bookingMsg"), "error", res.error || "Update failed.");
   } catch(err) { showMsg(document.getElementById("bookingMsg"), "error", "Network request failed."); }
 }
+
 function showMsg(element, type, text) { element.className = "msg " + type; element.textContent = text; }
 
-// ---------- Portfolio Upload (original) ----------
+// Portfolio Upload System
 function initDragAndDrop() {
   const dropZone = document.getElementById('dropZone');
   if (!dropZone) return;
@@ -320,7 +330,9 @@ function initDragAndDrop() {
   ['dragleave', 'drop'].forEach(name => { dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); }, false); });
   dropZone.addEventListener('drop', (e) => { handleFiles(e.dataTransfer.files); }, false);
 }
+
 function handleFileSelect(e) { handleFiles(e.target.files); }
+
 function handleFiles(files) {
   const container = document.getElementById('uploadQueueContainer');
   const queueList = document.getElementById('uploadQueue');
@@ -333,12 +345,17 @@ function handleFiles(files) {
     queueList.appendChild(div);
   });
 }
+
 async function uploadQueueItems() {
   const category = document.getElementById("galleryCategory").value;
   const altText = document.getElementById("galleryAltText").value.trim();
   const caption = document.getElementById("galleryCaption").value.trim();
   const activeQueue = uploadQueue.filter(item => item.status === 'pending');
+  const globalStatus = document.getElementById("portfolioUploadStatus");
+  
   if (activeQueue.length === 0) return alert("Upload queue contains no raw pending imagery assets.");
+  showMsg(globalStatus, "success", "Starting multi-file master processing upload...");
+  
   for (let item of activeQueue) {
     const element = document.getElementById(item.id);
     const labelStatus = element.querySelector('.queue-status');
@@ -350,17 +367,37 @@ async function uploadQueueItems() {
       const cleanedBase64 = base64String.split(',')[1];
       const response = await fetch(GOOGLE_SCRIPT_URL, {
         method: "POST", mode: "cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "admin_add_gallery", token: adminToken, file_data: cleanedBase64, file_type: item.file.type, file_name: item.file.name, category: category, alt_text: altText, caption: caption })
+        body: JSON.stringify({ 
+          action: "admin_add_gallery", 
+          token: adminToken, 
+          file_data: cleanedBase64, 
+          file_type: item.file.type, 
+          file_name: item.file.name, 
+          category: category, 
+          alt_text: altText, 
+          caption: caption 
+        })
       });
       const res = await response.json();
-      if (res.success) { item.status = 'success'; labelStatus.className = 'queue-status status-success'; labelStatus.textContent = 'Success'; }
-      else throw new Error();
-    } catch(err) { item.status = 'error'; labelStatus.className = 'queue-status status-error'; labelStatus.textContent = 'Failed'; }
+      if (res.success) { 
+        item.status = 'success'; 
+        labelStatus.className = 'queue-status status-success'; 
+        labelStatus.textContent = 'Success'; 
+      } else { 
+        throw new Error(res.error || "Execution failed"); 
+      }
+    } catch(err) { 
+      item.status = 'error'; 
+      labelStatus.className = 'queue-status status-error'; 
+      labelStatus.textContent = 'Failed'; 
+    }
   }
+  showMsg(globalStatus, "success", "Queue run complete. Assets matched and written.");
 }
+
 function convertToBase64(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error); }); }
 
-// ---------- NEW: Client Galleries Functions ----------
+// Client Galleries Functions
 async function loadGalleries() {
   const tbody = document.getElementById('galleriesList');
   if (!tbody) return;
@@ -368,30 +405,35 @@ async function loadGalleries() {
   try {
     const res = await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action: 'admin_list_galleries', token: adminToken })
     });
     const data = await res.json();
     if (data.success) {
       renderGalleries(data.galleries);
     } else {
-      tbody.innerHTML = '<tr><td colspan="6">Error loading galleries.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6">Error loading galleries: '+escapeHtml(data.error)+'</td></tr>';
     }
-  } catch(e) { tbody.innerHTML = '<tr><td colspan="6">Network error.</td></tr>'; }
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="6">Network connection failure.</td></tr>'; }
 }
 
 function renderGalleries(galleries) {
   const tbody = document.getElementById('galleriesList');
   tbody.innerHTML = '';
+  if(!galleries || galleries.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">No private client hubs built yet.</td></tr>';
+    return;
+  }
   galleries.forEach(g => {
     const link = `${window.location.origin}/gallery.html?id=${g.id}`;
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${g.id}</td>
-      <td>${g.client_name || '—'}</td>
-      <td>••••</td>
+      <td><strong>${escapeHtml(g.id)}</strong></td>
+      <td>${escapeHtml(g.client_name || '—')}</td>
+      <td><code style="background:#FAF7F4; border:1px solid var(--border-color); padding:4px 8px; font-family:monospace; font-size:13px; font-weight:bold; color:#B8976A;">${escapeHtml(g.password || 'N/A')}</code></td>
       <td>${g.image_count || 0}</td>
-      <td><a href="${link}" target="_blank">🔗 Open</a></td>
-      <td><button class="action-btn" onclick="editGallery('${g.id}')">Edit / Upload</button></td>
+      <td><a href="${link}" target="_blank" style="color:var(--accent-gold); text-decoration:none; font-weight:bold;">🔗 Launch Hub</a></td>
+      <td><button class="action-btn" onclick="editGallery('${g.id}')">Modify Files</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -400,21 +442,22 @@ function renderGalleries(galleries) {
 document.getElementById('newGalleryBtn')?.addEventListener('click', () => {
   const modal = document.getElementById('galleryModal');
   document.getElementById('galleryModalContent').innerHTML = `
-    <label>Gallery ID (unique, e.g., "SmithWedding")</label><input id="galId" placeholder="unique-id">
-    <label>Client Name (optional)</label><input id="galClientName" placeholder="e.g., Emily & James">
-    <label>Password (clients will need this)</label><input type="password" id="galPassword">
-    <button onclick="createGallery()">Create Gallery</button>
+    <label>Gallery ID (Unique slug lowercase/dashed, e.g. "smith-wedding")</label><input id="galId" placeholder="e.g. jensen-editorial">
+    <label>Client Reference Name</label><input id="galClientName" placeholder="e.g., Emily & James Jensen">
+    <label>Client Access Password</label><input type="text" id="galPassword" placeholder="e.g., JENSEN2026!">
+    <button onclick="createGallery()">Commit Direct Private Route</button>
   `;
   modal.classList.add('active');
 });
 
 async function createGallery() {
   const id = document.getElementById('galId').value.trim();
-  const pass = document.getElementById('galPassword').value;
-  const client = document.getElementById('galClientName').value;
-  if (!id || !pass) return alert('Gallery ID and password are required');
+  const pass = document.getElementById('galPassword').value.trim();
+  const client = document.getElementById('galClientName').value.trim();
+  if (!id || !pass) return alert('Gallery ID and secure token strings are required.');
   const res = await fetch(GOOGLE_SCRIPT_URL, {
     method: 'POST',
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({ action: 'admin_create_gallery', token: adminToken, gallery_id: id, password: pass, client_name: client })
   });
   const data = await res.json();
@@ -422,43 +465,54 @@ async function createGallery() {
     closeGalleryModal();
     loadGalleries();
   } else {
-    alert(data.error || 'Creation failed');
+    alert(data.error || 'Creation engine rejection');
   }
 }
 
 async function editGallery(galleryId) {
   const modal = document.getElementById('galleryModal');
   document.getElementById('galleryModalContent').innerHTML = `
-    <label>Upload Images (select multiple)</label>
+    <h3>Target Studio Route: ${escapeHtml(galleryId)}</h3><br>
+    <label>Select Multi-Asset Delivery</label>
     <input type="file" id="galleryUploadInput" multiple accept="image/*">
-    <button onclick="uploadToGallery('${galleryId}')">Upload Selected</button>
-    <div id="galleryUploadStatus"></div>
+    <button onclick="uploadToGallery('${galleryId}')">Transmit Client Package</button>
+    <div id="galleryUploadStatus" style="margin-top:20px; max-height:200px; overflow-y:auto; font-size:12px; background:#f9f9f9; padding:10px;"></div>
   `;
   modal.classList.add('active');
 }
 
 async function uploadToGallery(galleryId) {
   const files = document.getElementById('galleryUploadInput').files;
-  if (!files.length) return alert('Select at least one image');
+  if (!files.length) return alert('Select items to stage first.');
   const statusDiv = document.getElementById('galleryUploadStatus');
   statusDiv.innerHTML = '';
   for (let file of files) {
-    statusDiv.innerHTML += `<div>Uploading ${file.name}...</div>`;
+    statusDiv.innerHTML += `<div>Staging sequence: ${file.name}...</div>`;
     const base64 = await convertToBase64(file);
     const cleaned = base64.split(',')[1];
     const res = await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action: 'admin_add_gallery_image', token: adminToken, gallery_id: galleryId, file_data: cleaned, file_name: file.name })
     });
     const data = await res.json();
-    if (data.success) statusDiv.innerHTML += `<div>✅ ${file.name} uploaded</div>`;
-    else statusDiv.innerHTML += `<div>❌ ${file.name} failed: ${data.error}</div>`;
+    if (data.success) statusDiv.innerHTML += `<div style="color:green;">✅ Written: ${file.name}</div>`;
+    else statusDiv.innerHTML += `<div style="color:red;">❌ Core Refusal: ${file.name} - ${data.error}</div>`;
   }
   loadGalleries();
 }
 
-function closeGalleryModal() {
-  document.getElementById('galleryModal').classList.remove('active');
+function closeGalleryModal() { document.getElementById('galleryModal').classList.remove('active'); }
+
+// Helper
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
 }
 </script>
 </body>

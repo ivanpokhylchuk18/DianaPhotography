@@ -4,7 +4,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynTYCRDV3lStEg79LHZs9LwNbA0EQrTigLP-u41ffzSjLTFTEHu2iKf4LQCLYRY-Rz/exec";
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyKQjD9xQvt4fBl3z79dMEP3nU8f6qXLBrtS2cFLHa7897kHnzbtHm66WdBfhT3T1rx/exec";
 
   // --- 1. NAVBAR SCROLL ---
   const navbar = document.getElementById('navbar');
@@ -75,21 +75,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // --- 6. PORTFOLIO HOVER TILT (keep original) ---
-  const portfolioItems = document.querySelectorAll('.portfolio-item');
-  portfolioItems.forEach((item) => {
-    item.addEventListener('mousemove', (e) => {
-      const rect = item.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-      const rotateX = (y - centerY) / centerY * -3;
-      const rotateY = (x - centerX) / centerX * 3;
-      item.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.01)`;
+  // --- 6. PORTFOLIO HOVER TILT (applied to image items) ---
+  function applyTiltEffect(elements) {
+    elements.forEach((item) => {
+      item.addEventListener('mousemove', (e) => {
+        const rect = item.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const rotateX = (y - centerY) / centerY * -3;
+        const rotateY = (x - centerX) / centerX * 3;
+        item.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.01)`;
+      });
+      item.addEventListener('mouseleave', () => { item.style.transform = ''; });
     });
-    item.addEventListener('mouseleave', () => { item.style.transform = ''; });
-  });
+  }
 
   // --- 7. STATS COUNTER ---
   const statNums = document.querySelectorAll('.stat-num');
@@ -139,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const navLinks = document.querySelectorAll('.nav-links a:not(.nav-cta)');
   navLinks.forEach((link) => { if (link.getAttribute('href') === currentPath || (currentPath === '' && link.getAttribute('href') === 'index.html')) link.classList.add('active'); });
 
-  // --- 10. BOOKING WIZARD (unchanged from your original) ---
+  // --- 10. BOOKING WIZARD (unchanged) ---
   const contactForm = document.getElementById('contactForm');
   if (contactForm) {
     const step1 = document.getElementById('wizard-step-1');
@@ -160,11 +161,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let customCalendarInstance = null;
 
     function initializePremiumCalendar(disabledDatesArray = []) {
-      customCalendarInstance = flatpickr("#preferred_date", {
-        dateFormat: "Y-m-d", minDate: "today", disable: disabledDatesArray,
-        locale: { firstDayOfWeek: 1 },
-        onChange: function(selectedDates, dateStr) { console.log("Selected target date slot:", dateStr); }
-      });
+      if (typeof flatpickr !== 'undefined') {
+        customCalendarInstance = flatpickr("#preferred_date", {
+          dateFormat: "Y-m-d", minDate: "today", disable: disabledDatesArray,
+          locale: { firstDayOfWeek: 1 },
+          onChange: function(selectedDates, dateStr) { console.log("Selected target date slot:", dateStr); }
+        });
+      }
     }
     async function fetchStudioAvailability() {
       try {
@@ -235,69 +238,149 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- 11. DYNAMIC PORTFOLIO LOADER (public gallery) ---
-  async function loadPortfolio() {
-    const grid = document.getElementById('dynamicPortfolioGrid');
-    if (!grid) return;
-    try {
-      const res = await fetch(`${APPS_SCRIPT_URL}?action=gallery`);
-      const data = await res.json();
-      if (data.success && data.data.length) {
-        renderPortfolio(data.data);
-        initFilters();
-      } else {
-        grid.innerHTML = '<p>Portfolio images coming soon.</p>';
+  // --- 11. FOLDER-BASED PORTFOLIO LOADER ---
+  const folderGrid = document.getElementById('folderDirectoryGrid');
+  const imageGrid = document.getElementById('dynamicPortfolioGrid');
+  const folderBackRow = document.getElementById('folderBackRow');
+  const backBtn = document.getElementById('backToFoldersBtn');
+
+  if (folderGrid && imageGrid) {
+    let allImages = [];
+    let currentCategory = null;
+
+    async function loadPortfolioFolders() {
+      folderGrid.innerHTML = '<div style="text-align:center; padding:40px;">Loading collections...</div>';
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=gallery`);
+        const data = await res.json();
+        if (data.success && data.data.length) {
+          allImages = data.data;
+          // Group by category
+          const categories = {};
+          allImages.forEach(img => {
+            const cat = img.category || 'uncategorized';
+            if (!categories[cat]) categories[cat] = [];
+            categories[cat].push(img);
+          });
+          renderFolderCards(categories);
+        } else {
+          folderGrid.innerHTML = '<p>No portfolio images found. Please upload from the admin panel.</p>';
+        }
+      } catch(e) {
+        console.error(e);
+        folderGrid.innerHTML = '<p>Could not load portfolio. Please try again later.</p>';
       }
-    } catch(e) {
-      console.error(e);
-      grid.innerHTML = '<p>Could not load portfolio.</p>';
     }
-  }
 
-  function renderPortfolio(images) {
-    const grid = document.getElementById('dynamicPortfolioGrid');
-    grid.innerHTML = '';
-    images.forEach(img => {
-      const item = document.createElement('a');
-      item.href = '#';
-      item.className = 'portfolio-item';
-      item.setAttribute('data-category', img.category);
-      item.innerHTML = `<img src="${img.photo_url}" alt="${img.alt_text || img.caption}" loading="lazy"><div class="portfolio-overlay"><span class="portfolio-label">${img.caption || img.category}</span></div>`;
-      grid.appendChild(item);
-    });
-    // Re-apply hover tilt effect for new items
-    const newItems = document.querySelectorAll('#dynamicPortfolioGrid .portfolio-item');
-    newItems.forEach((item) => {
-      item.addEventListener('mousemove', (e) => {
-        const rect = item.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        const rotateX = (y - centerY) / centerY * -3;
-        const rotateY = (x - centerX) / centerX * 3;
-        item.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.01)`;
-      });
-      item.addEventListener('mouseleave', () => { item.style.transform = ''; });
-    });
-  }
+    function renderFolderCards(categories) {
+      folderGrid.innerHTML = '';
+      const categoryTitles = {
+        weddings: 'Weddings',
+        engagements: 'Engagements',
+        portraits: 'Portraits',
+        uncategorized: 'Other Work'
+      };
+      for (const [cat, images] of Object.entries(categories)) {
+        const card = document.createElement('div');
+        card.className = 'portfolio-folder-card';
+        card.innerHTML = `
+          <div style="font-size: 2.5rem; margin-bottom: 1rem;">📷</div>
+          <h3>${categoryTitles[cat] || cat}</h3>
+          <p>${images.length} photograph${images.length !== 1 ? 's' : ''}</p>
+        `;
+        card.addEventListener('click', () => showCategoryImages(cat, categoryTitles[cat] || cat));
+        folderGrid.appendChild(card);
+      }
+    }
 
-  function initFilters() {
-    const btns = document.querySelectorAll('.filter-btn');
-    const items = document.querySelectorAll('#dynamicPortfolioGrid .portfolio-item');
-    btns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        btns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const cat = btn.getAttribute('data-category');
-        items.forEach(item => {
-          if (cat === 'all' || item.getAttribute('data-category') === cat) item.style.display = 'block';
-          else item.style.display = 'none';
+    function showCategoryImages(category, displayName) {
+      currentCategory = category;
+      const filtered = allImages.filter(img => (img.category || 'uncategorized') === category);
+      renderImageGrid(filtered, displayName);
+      folderGrid.style.display = 'none';
+      imageGrid.style.display = 'grid';
+      folderBackRow.style.display = 'block';
+      // Scroll to top of grid
+      imageGrid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderImageGrid(images, categoryName) {
+      imageGrid.innerHTML = '';
+      if (images.length === 0) {
+        imageGrid.innerHTML = '<p>No images in this collection.</p>';
+        return;
+      }
+      images.forEach(img => {
+        const item = document.createElement('a');
+        item.href = '#';
+        item.className = 'portfolio-item';
+        item.setAttribute('data-category', img.category);
+        item.innerHTML = `<img src="${img.photo_url}" alt="${img.alt_text || img.caption || categoryName}" loading="lazy"><div class="portfolio-overlay"><span class="portfolio-label">${img.caption || categoryName}</span></div>`;
+        
+        // Add click handler to open lightbox
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          openLightbox(img.photo_url, img.caption || categoryName);
         });
+        
+        imageGrid.appendChild(item);
       });
-    });
+      // Apply hover tilt effect to new items
+      const newItems = document.querySelectorAll('#dynamicPortfolioGrid .portfolio-item');
+      applyTiltEffect(Array.from(newItems));
+    }
+
+    function resetToFolderView() {
+      folderGrid.style.display = 'grid';
+      imageGrid.style.display = 'none';
+      folderBackRow.style.display = 'none';
+      currentCategory = null;
+      // Optionally re-render folders in case data changed
+      loadPortfolioFolders();
+    }
+
+    if (backBtn) backBtn.addEventListener('click', resetToFolderView);
+
+    loadPortfolioFolders();
   }
 
-  if (document.getElementById('dynamicPortfolioGrid')) loadPortfolio();
+  // Apply tilt to any existing portfolio items on other pages (index, etc.)
+  const existingPortfolioItems = document.querySelectorAll('.portfolio-item');
+  if (existingPortfolioItems.length) applyTiltEffect(Array.from(existingPortfolioItems));
 
-}); // end DOMContentLoaded
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LIGHTBOX FUNCTIONS (Global - outside DOMContentLoaded)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+function openLightbox(imageUrl, caption) {
+  const lightbox = document.getElementById('imageLightbox');
+  const lightboxImage = document.getElementById('lightboxImage');
+  const lightboxCaption = document.getElementById('lightboxCaption');
+  
+  if (lightbox && lightboxImage) {
+    lightboxImage.src = imageUrl;
+    lightboxCaption.textContent = caption;
+    lightbox.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Close lightbox on Escape key
+    document.addEventListener('keydown', handleLightboxKeydown);
+  }
+}
+
+function closeLightbox() {
+  const lightbox = document.getElementById('imageLightbox');
+  if (lightbox) {
+    lightbox.style.display = 'none';
+    document.body.style.overflow = '';
+    document.removeEventListener('keydown', handleLightboxKeydown);
+  }
+}
+
+function handleLightboxKeydown(e) {
+  if (e.key === 'Escape') {
+    closeLightbox();
+  }
+}
