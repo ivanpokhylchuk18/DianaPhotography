@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
           successScreen.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else { throw new Error(result.error || 'Server rejection.'); }
       } catch (err) {
-        alert(`Submission issue: ${err.message}. Please email dianaobermeyerphotography@gmail.com directly.`);
+        alert(`Submission issue: ${err.message}. Please email dianaobermeyerphotogrpahy@gmail.com directly.`);
         submitBtn.textContent = 'Submit Booking Request';
         submitBtn.disabled = false;
       }
