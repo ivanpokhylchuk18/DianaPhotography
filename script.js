@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
           successScreen.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else { throw new Error(result.error || 'Server rejection.'); }
       } catch (err) {
-        alert(`Submission issue: ${err.message}. Please email dt7photography@gmail.com directly.`);
+        alert(`Submission issue: ${err.message}. Please email dianaobermeyerphotography@gmail.com directly.`);
         submitBtn.textContent = 'Submit Booking Request';
         submitBtn.disabled = false;
       }
@@ -247,29 +247,44 @@ document.addEventListener('DOMContentLoaded', () => {
   if (folderGrid && imageGrid) {
     let allImages = [];
     let currentCategory = null;
+    const localPortfolioImages = [
+      { photo_url: "images/Weddings%20Portraits-20260822T183305Z-1-001/Weddings%20Portraits/IMG_2843.jpg", category: "weddings", alt_text: "Wedding celebration", caption: "Weddings" },
+      { photo_url: "images/Weddings%20Portraits-20260822T183305Z-1-001/Weddings%20Portraits/IMG_3205.jpg", category: "weddings", alt_text: "Wedding portrait", caption: "Weddings" },
+      { photo_url: "images/Engagement%20Portraits-20260822T183310Z-1-001/Engagement%20Portraits/IMG_3925.jpg", category: "engagements", alt_text: "Engagement portrait", caption: "Engagements" },
+      { photo_url: "images/Engagement%20Portraits-20260822T183310Z-1-001/Engagement%20Portraits/IMG_5804.jpg", category: "engagements", alt_text: "Couple portrait", caption: "Engagements" },
+      { photo_url: "images/Family%20Portraits-20260822T183309Z-1-001/Family%20Portraits/IMG_1338.jpg", category: "family-portraits", alt_text: "Family portrait", caption: "Family Portraits" },
+      { photo_url: "images/Family%20Portraits-20260822T183309Z-1-001/Family%20Portraits/IMG_1912.jpg", category: "family-portraits", alt_text: "Family outdoors", caption: "Family Portraits" },
+      { photo_url: "images/Maternity%20Portraits-20260822T183308Z-1-001/Maternity%20Portraits/IMG_7000.jpg", category: "maternity-portraits", alt_text: "Maternity portrait", caption: "Maternity Portraits" },
+      { photo_url: "images/Maternity%20Portraits-20260822T183308Z-1-001/Maternity%20Portraits/IMG_7066.jpg", category: "maternity-portraits", alt_text: "Maternity session", caption: "Maternity Portraits" },
+      { photo_url: "images/Children%27s%20Portraits-20260822T183310Z-1-001/Children_s%20Portraits/IMG_0243.jpg", category: "childrens-portraits", alt_text: "Children's portrait", caption: "Children's Portraits" },
+      { photo_url: "images/Children%27s%20Portraits-20260822T183310Z-1-001/Children_s%20Portraits/IMG_0322.jpg", category: "childrens-portraits", alt_text: "Children playing outdoors", caption: "Children's Portraits" },
+      { photo_url: "images/Senior%20Portraits-20260822T183307Z-1-001/Senior%20Portraits/IMG_0312.jpg", category: "senior-portraits", alt_text: "Senior portrait", caption: "Senior Portraits" },
+      { photo_url: "images/Senior%20Portraits-20260822T183307Z-1-001/Senior%20Portraits/IMG_0459.jpg", category: "senior-portraits", alt_text: "Senior portrait outdoors", caption: "Senior Portraits" }
+    ];
 
     async function loadPortfolioFolders() {
-      folderGrid.innerHTML = '<div style="text-align:center; padding:40px;">Loading collections...</div>';
+      allImages = localPortfolioImages;
+      renderPortfolioFolders();
       try {
         const res = await fetch(`${APPS_SCRIPT_URL}?action=gallery`);
         const data = await res.json();
-        if (data.success && data.data.length) {
-          allImages = data.data;
-          // Group by category
-          const categories = {};
-          allImages.forEach(img => {
-            const cat = img.category || 'uncategorized';
-            if (!categories[cat]) categories[cat] = [];
-            categories[cat].push(img);
-          });
-          renderFolderCards(categories);
-        } else {
-          folderGrid.innerHTML = '<p>No portfolio images found. Please upload from the admin panel.</p>';
+        if (data.success && Array.isArray(data.data) && data.data.length) {
+          allImages = [...localPortfolioImages, ...data.data];
+          renderPortfolioFolders();
         }
       } catch(e) {
         console.error(e);
-        folderGrid.innerHTML = '<p>Could not load portfolio. Please try again later.</p>';
       }
+    }
+
+    function renderPortfolioFolders() {
+      const categories = {};
+      allImages.forEach(img => {
+        const cat = img.category || 'uncategorized';
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push(img);
+      });
+      renderFolderCards(categories);
     }
 
     function renderFolderCards(categories) {
@@ -278,6 +293,10 @@ document.addEventListener('DOMContentLoaded', () => {
         weddings: 'Weddings',
         engagements: 'Engagements',
         portraits: 'Portraits',
+        'family-portraits': 'Family Portraits',
+        'maternity-portraits': 'Maternity Portraits',
+        'childrens-portraits': "Children's Portraits",
+        'senior-portraits': 'Senior Portraits',
         uncategorized: 'Other Work'
       };
       for (const [cat, images] of Object.entries(categories)) {

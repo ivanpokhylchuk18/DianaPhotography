@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   styles.css — Aria Sommers Photography
+  styles.css — Diana Obermeyer Photography
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Variables ─────────────────────────────────────────────────────────────── */
@@ -718,7 +718,7 @@ a { text-decoration: none; color: inherit; }
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   grid-template-rows: 280px 280px;
-  gap: 4px;
+  gap: 10px;
 }
 
 .portfolio-item {
@@ -773,6 +773,15 @@ a { text-decoration: none; color: inherit; }
   height: 620px;
   overflow: hidden;
 }
+
+#story .about-image {
+  margin-top: 3rem;
+}
+
+#story .about-image img {
+  object-position: 82% center;
+}
+
 .about-image img {
   width: 100%; height: 100%;
   object-fit: cover;
@@ -1239,6 +1248,9 @@ footer {
 /* Dynamic Portfolio Grid Enhancement */
 #dynamicPortfolioGrid {
   padding: 0 1.5rem !important;
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  align-items: stretch;
 }
 
 .portfolio-item {
@@ -1256,6 +1268,15 @@ footer {
   height: 100%;
   object-fit: cover;
   transition: transform 0.75s var(--ease-luxury);
+}
+
+#dynamicPortfolioGrid .portfolio-item {
+  aspect-ratio: 4 / 5;
+  min-height: 0;
+}
+
+#dynamicPortfolioGrid .portfolio-item img {
+  display: block;
 }
 
 .portfolio-item:hover img {
@@ -1588,6 +1609,7 @@ footer {
   .portfolio-grid {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 240px 240px 240px;
+    gap: 8px;
   }
   .portfolio-item.large { grid-row: auto; grid-column: 1 / -1; }
 
@@ -1647,6 +1669,7 @@ footer {
   .portfolio-grid {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: repeat(3, 200px);
+    gap: 8px;
   }
   .portfolio-item.large { grid-column: 1 / -1; }
   .portfolio-hero { padding: 6rem 1.5rem 4rem; }
@@ -1655,6 +1678,8 @@ footer {
 
   /* About */
   .about-image { height: 360px; }
+  #story .about-image { margin-top: 2rem; }
+  #story .about-image img { object-position: 76% center; }
   .about-image img { object-position: center 64%; }
   .about-content { padding: 3.5rem 1.5rem; }
   .about-quote { font-size: 0.9rem; left: 1.5rem; right: 1.5rem; bottom: 2rem; }
