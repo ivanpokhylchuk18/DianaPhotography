@@ -737,17 +737,19 @@ a { text-decoration: none; color: inherit; }
 
 .portfolio-item img {
   width: 100%; height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center center;
+  background: var(--mist);
   transition: transform 0.75s var(--ease-luxury);
 }
-.portfolio-item:hover img { transform: scale(1.06); }
+.portfolio-item:hover img { transform: none; }
 
 .investment-page .portfolio-item img {
-  object-position: 74% center;
+  object-position: center center;
 }
 
 .investment-page .portfolio-item.large img {
-  object-position: 68% center;
+  object-position: center center;
 }
 
 .portfolio-overlay {
@@ -791,17 +793,18 @@ a { text-decoration: none; color: inherit; }
 }
 
 #story .about-image img {
-  object-position: 82% center;
+  object-position: center center;
 }
 
 .about-image img {
   width: 100%; height: 100%;
-  object-fit: cover;
-  object-position: center 68%;
+  object-fit: contain;
+  object-position: center center;
+  background: var(--mist);
   filter: saturate(0.92) contrast(0.97);
   transition: transform 0.8s var(--ease-luxury);
 }
-.about:hover .about-image img { transform: scale(1.03); }
+.about:hover .about-image img { transform: none; }
 
 .about-image-overlay {
   position: absolute;
@@ -1210,12 +1213,22 @@ footer {
 .portfolio-folder-card {
   background: var(--cream);
   border: 1px solid rgba(44, 44, 44, 0.06);
-  padding: 3rem 2rem;
+  padding: 0 0 2rem;
+  min-width: 0;
   text-align: center;
   cursor: pointer;
   transition: all 0.4s var(--ease-luxury);
   position: relative;
   overflow: hidden;
+}
+
+.portfolio-folder-cover {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  object-position: center center;
+  background: var(--mist);
+  margin-bottom: 1.5rem;
 }
 
 .portfolio-folder-card::before {
@@ -1240,9 +1253,12 @@ footer {
 
 .portfolio-folder-card h3 {
   font-family: var(--font-display);
-  font-size: clamp(1.3rem, 4vw, 2rem);
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  line-height: 1.1;
   font-weight: 400;
   color: var(--charcoal);
+  padding: 0 2rem;
+  min-height: 2.2em;
   position: relative;
   z-index: 1;
   margin-bottom: 0.5rem;
@@ -1252,6 +1268,7 @@ footer {
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--stone);
+  padding: 0 2rem;
   position: relative;
   z-index: 1;
   letter-spacing: 0.05em;
@@ -1278,7 +1295,9 @@ footer {
 .portfolio-item img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center center;
+  background: var(--mist);
   transition: transform 0.75s var(--ease-luxury);
 }
 
@@ -1291,9 +1310,7 @@ footer {
   display: block;
 }
 
-.portfolio-item:hover img {
-  transform: scale(1.08);
-}
+.portfolio-item:hover img { transform: none; }
 
 .portfolio-overlay {
   background: linear-gradient(to top, rgba(20, 14, 10, 0.92) 0%, rgba(20, 14, 10, 0.4) 60%, transparent 100%) !important;
@@ -1379,7 +1396,9 @@ footer {
 #folderDirectoryGrid,
 #dynamicPortfolioGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: none;
+  grid-auto-rows: auto;
   gap: 1.5rem;
   padding: 0 1.5rem;
 }
@@ -1391,7 +1410,7 @@ footer {
 
 .session-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
@@ -1630,7 +1649,7 @@ footer {
   .portfolio-item.large { grid-row: auto; grid-column: 1 / -1; }
 
   .portfolio-hero { padding: 8rem 2.5rem 5rem; }
-  #folderDirectoryGrid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important; }
+  #folderDirectoryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   #dynamicPortfolioGrid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important; }
 
   .about { grid-template-columns: 1fr; }
@@ -1680,6 +1699,8 @@ footer {
   .services-grid { grid-template-columns: 1fr; }
   .service-card:last-child { grid-column: auto; }
 
+  .session-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
   /* Portfolio */
   .portfolio-section { padding: 5rem 0; }
   .portfolio-header { padding: 0 1.5rem; flex-direction: column; align-items: flex-start; gap: 1rem; }
@@ -1690,7 +1711,7 @@ footer {
   }
   .portfolio-item.large { grid-column: 1 / -1; }
   .investment-page .portfolio-item img,
-  .investment-page .portfolio-item.large img { object-position: 72% center; }
+  .investment-page .portfolio-item.large img { object-position: center center; }
   .portfolio-hero { padding: 6rem 1.5rem 4rem; }
   #folderDirectoryGrid { grid-template-columns: 1fr !important; padding: 0 1.5rem !important; }
   #dynamicPortfolioGrid { grid-template-columns: 1fr !important; padding: 0 1.5rem !important; }
@@ -1698,8 +1719,8 @@ footer {
   /* About */
   .about-image { height: 360px; }
   #story .about-image { margin-top: 2rem; }
-  #story .about-image img { object-position: 76% center; }
-  .about-image img { object-position: center 64%; }
+  #story .about-image img { object-position: center center; }
+  .about-image img { object-position: center center; }
   .about-content { padding: 3.5rem 1.5rem; }
   .about-quote { font-size: 0.9rem; left: 1.5rem; right: 1.5rem; bottom: 2rem; }
 

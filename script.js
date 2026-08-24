@@ -303,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const card = document.createElement('div');
         card.className = 'portfolio-folder-card';
         card.innerHTML = `
-          <div style="font-size: 2.5rem; margin-bottom: 1rem;">📷</div>
+          <img class="portfolio-folder-cover" src="${images[0].photo_url}" alt="${categoryTitles[cat] || cat} collection cover" loading="lazy">
           <h3>${categoryTitles[cat] || cat}</h3>
           <p>${images.length} photograph${images.length !== 1 ? 's' : ''}</p>
         `;
