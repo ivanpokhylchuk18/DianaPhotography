@@ -253,50 +253,74 @@
     </div>
   </section>
 
-  <!-- ══════════════════════════════════════════════════════════ -->
-  <!--  TESTIMONIALS                                              -->
-  <!-- ══════════════════════════════════════════════════════════ -->
-  <section class="testimonials">
-    <p class="section-label reveal">Kind Words</p>
-    <h2 class="section-title reveal">What my clients say</h2>
-    <div class="section-divider reveal" style="margin: 1.5rem auto; background: rgba(184,151,106,0.4);"></div>
-
-    <div class="testimonials-grid">
-      <div class="testimonial-card reveal">
-        <div class="stars">★★★★★</div>
-        <p class="testimonial-quote">
-          "Diana has a gift for capturing emotion. When we looked at our gallery,
-          we were moved to tears — every single photo told a story. She was warm,
-          calm, and completely invisible on our wedding day."
-        </p>
-        <p class="testimonial-author">Emily &amp; James</p>
-        <p class="testimonial-event">Wedding at The Estate, 2024</p>
-      </div>
-
-      <div class="testimonial-card reveal delay-1">
-        <div class="stars">★★★★★</div>
-        <p class="testimonial-quote">
-          "I was so nervous in front of the camera but Diana made us feel completely
-          at ease. The golden hour photos are hanging in our living room and every
-          guest asks about them. Absolute magic."
-        </p>
-        <p class="testimonial-author">Sophia Rodriguez</p>
-        <p class="testimonial-event">Engagement Session, Evansville</p>
-      </div>
-
-      <div class="testimonial-card reveal delay-2">
-        <div class="stars">★★★★★</div>
-        <p class="testimonial-quote">
-          "We chose an intimate elopement and Diana was the perfect person to
-          capture it. She understood our vision immediately — romantic, soft, and
-          timeless. Cannot recommend her highly enough."
-        </p>
-        <p class="testimonial-author">Claire &amp; Thomas</p>
-        <p class="testimonial-event">Garden Elopement, Evansville</p>
-      </div>
+<!-- ═══════════════════════════════════════════════════════════════
+     REVIEWS / CLIENT STORIES
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="reviews-section" id="reviews">
+  <div class="reviews-header reveal">
+    <p class="section-label">Client Stories</p>
+    <h2 class="section-title">Words of Love</h2>
+    <div class="section-divider" style="margin: 1.5rem auto; background: rgba(184,151,106,0.4);"></div>
+    <p class="reviews-intro">Kind words from the people who have trusted me to capture their most meaningful moments.</p>
+  </div>
+  <div class="reviews-summary reveal">
+    <div class="reviews-average">
+      <span id="reviewsAverage">0.0</span>
+      <div class="reviews-average-stars" id="reviewsAverageStars">☆☆☆☆☆</div>
+      <span class="reviews-count" id="reviewsCount">0 reviews</span>
     </div>
-  </section>
-
+  </div>
+  <div class="reviews-grid" id="reviewsContainer">
+    <div class="reviews-loading">
+      <span class="reviews-loading-dot"></span>
+      <span>Loading client stories...</span>
+    </div>
+  </div>
+</section>
+<section class="review-submission">
+  <div class="review-form-container reveal">
+    <div class="review-form-heading">
+      <p class="section-label">Your Experience</p>
+      <h3>Share Your Story</h3>
+      <p>If you've worked with Diana, we'd love to hear about your experience.</p>
+    </div>
+    <form id="reviewForm" class="review-form">
+      <div class="review-field">
+        <label for="reviewName">Your Name</label>
+        <input type="text" id="reviewName" name="name" placeholder="Jane Smith" maxlength="80" autocomplete="name" required />
+      </div>
+      <div class="review-field">
+        <label>Your Rating</label>
+        <div class="star-rating" id="starRating" role="radiogroup" aria-label="Choose a rating from 1 to 5 stars">
+          <button type="button" class="star-button" data-rating="1" aria-label="1 star" role="radio" aria-checked="false">★</button>
+          <button type="button" class="star-button" data-rating="2" aria-label="2 stars" role="radio" aria-checked="false">★</button>
+          <button type="button" class="star-button" data-rating="3" aria-label="3 stars" role="radio" aria-checked="false">★</button>
+          <button type="button" class="star-button" data-rating="4" aria-label="4 stars" role="radio" aria-checked="false">★</button>
+          <button type="button" class="star-button" data-rating="5" aria-label="5 stars" role="radio" aria-checked="false">★</button>
+        </div>
+        <input type="hidden" name="rating" id="reviewRating" value="" required />
+        <span class="rating-label" id="ratingLabel">Select your rating</span>
+      </div>
+      <div class="review-field">
+        <label for="reviewMessage">Your Review</label>
+        <textarea id="reviewMessage" name="message" rows="6" maxlength="1200" placeholder="Tell us about your experience..." required></textarea>
+        <div class="character-count">
+          <span id="reviewCharacterCount">0</span>
+          / 1200
+        </div>
+      </div>
+      <button type="submit" class="review-submit-button" id="submitReviewBtn">
+        <span>Share My Review</span>
+        <span class="review-submit-arrow">→</span>
+      </button>
+    </form>
+    <div id="reviewSuccessMessage" class="review-success" style="display:none;">
+      <div class="success-check">✓</div>
+      <h4>Thank You</h4>
+      <p>Your kind words have been received. We truly appreciate you taking the time to share your experience.</p>
+    </div>
+  </div>
+</section>
   <!-- ══════════════════════════════════════════════════════════ -->
   <!--  CTA SECTION                                               -->
   <!-- ══════════════════════════════════════════════════════════ -->
@@ -365,5 +389,790 @@
   </footer>
 
   <script src="script.js"></script>
+
+  <script>
+  // ═══════════════════════════════════════════════════════════════════════
+// REVIEWS SYSTEM
+// ═══════════════════════════════════════════════════════════════════════
+
+const REVIEWS_API_URL =
+  "https://script.google.com/macros/s/AKfycbwNkuyiRADG4TyBvmeg8AvU6b6FPkpOGQZ7C5HIkUjR7gOAF2sagL2f1tGIfJr269jY/exec";
+
+
+const reviewsContainer =
+  document.getElementById("reviewsContainer");
+
+const reviewForm =
+  document.getElementById("reviewForm");
+
+const reviewRating =
+  document.getElementById("reviewRating");
+
+const starButtons =
+  document.querySelectorAll(".star-button");
+
+const ratingLabel =
+  document.getElementById("ratingLabel");
+
+const characterCount =
+  document.getElementById("reviewCharacterCount");
+
+const reviewMessage =
+  document.getElementById("reviewMessage");
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// STAR RATING
+// ═══════════════════════════════════════════════════════════════════════
+
+const ratingText = {
+  1: "1 star",
+  2: "2 stars",
+  3: "3 stars",
+  4: "4 stars",
+  5: "5 stars"
+};
+
+
+function updateStars(rating) {
+
+  starButtons.forEach((button) => {
+
+    const buttonRating =
+      Number(button.dataset.rating);
+
+    const isActive =
+      buttonRating <= rating;
+
+    button.classList.toggle(
+      "active",
+      isActive
+    );
+
+    button.setAttribute(
+      "aria-checked",
+      buttonRating === rating
+        ? "true"
+        : "false"
+    );
+
+  });
+
+
+  ratingLabel.textContent =
+    rating
+      ? ratingText[rating]
+      : "Select your rating";
+
+}
+
+
+starButtons.forEach((button) => {
+
+  button.addEventListener(
+    "mouseenter",
+    () => {
+
+      const rating =
+        Number(button.dataset.rating);
+
+      starButtons.forEach((star) => {
+
+        star.classList.toggle(
+          "active",
+          Number(star.dataset.rating) <= rating
+        );
+
+      });
+
+    }
+  );
+
+
+  button.addEventListener(
+    "mouseleave",
+    () => {
+
+      updateStars(
+        Number(reviewRating.value) || 0
+      );
+
+    }
+  );
+
+
+  button.addEventListener(
+    "click",
+    () => {
+
+      const rating =
+        Number(button.dataset.rating);
+
+      reviewRating.value =
+        rating;
+
+      updateStars(rating);
+
+    }
+  );
+
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// CHARACTER COUNTER
+// ═══════════════════════════════════════════════════════════════════════
+
+if (reviewMessage) {
+
+  reviewMessage.addEventListener(
+    "input",
+    () => {
+
+      characterCount.textContent =
+        reviewMessage.value.length;
+
+    }
+  );
+
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// ESCAPE HTML
+// Prevents somebody from putting HTML/JS into a review.
+// ═══════════════════════════════════════════════════════════════════════
+
+function escapeReviewText(value) {
+
+  const div =
+    document.createElement("div");
+
+  div.textContent =
+    value == null
+      ? ""
+      : String(value);
+
+  return div.innerHTML;
+
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// CREATE STAR DISPLAY
+// ═══════════════════════════════════════════════════════════════════════
+
+function createStars(rating) {
+
+  const numericRating =
+    Math.max(
+      0,
+      Math.min(
+        5,
+        Number(rating) || 0
+      )
+    );
+
+  let stars = "";
+
+  for (let i = 1; i <= 5; i++) {
+
+    if (i <= numericRating) {
+
+      stars += "★";
+
+    } else {
+
+      stars +=
+        '<span class="empty">★</span>';
+
+    }
+
+  }
+
+  return stars;
+
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// FORMAT DATE
+// ═══════════════════════════════════════════════════════════════════════
+
+function formatReviewDate(timestamp) {
+
+  if (!timestamp) {
+    return "";
+  }
+
+  const date =
+    new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleDateString(
+    "en-US",
+    {
+      month: "short",
+      year: "numeric"
+    }
+  );
+
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// GET INITIAL
+// ═══════════════════════════════════════════════════════════════════════
+
+function getInitial(name) {
+
+  const cleanName =
+    String(name || "").trim();
+
+  return cleanName
+    ? cleanName.charAt(0).toUpperCase()
+    : "?";
+
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// LOAD REVIEWS
+// ═══════════════════════════════════════════════════════════════════════
+
+async function loadDynamicReviews() {
+
+  if (!reviewsContainer) {
+    return;
+  }
+
+  try {
+
+    const response = await fetch(
+      REVIEWS_API_URL + "?action=reviews"
+    );
+
+    if (!response.ok) {
+      throw new Error("Could not load reviews.");
+    }
+
+    const data = await response.json();
+
+    console.log("REVIEWS API RESPONSE:", data);
+
+    // Handle all possible response structures
+    let reviews = [];
+
+    if (Array.isArray(data)) {
+      reviews = data;
+    }
+
+    else if (Array.isArray(data.data)) {
+      reviews = data.data;
+    }
+
+    else if (Array.isArray(data.reviews)) {
+      reviews = data.reviews;
+    }
+
+    else if (
+      data.data &&
+      Array.isArray(data.data.reviews)
+    ) {
+      reviews = data.data.reviews;
+    }
+
+
+    console.log("REVIEWS FOUND:", reviews);
+
+
+    if (reviews.length === 0) {
+
+      reviewsContainer.innerHTML = `
+        <div class="reviews-empty">
+          <p>
+            Be the first to share your experience.
+          </p>
+        </div>
+      `;
+
+      updateReviewSummary([]);
+
+      return;
+    }
+
+
+    // Newest first
+    reviews = [...reviews].reverse();
+
+
+    reviewsContainer.innerHTML = "";
+
+
+    reviews.forEach((review) => {
+
+      /*
+       * Handle different possible column/property names
+       */
+
+      const name =
+        review.name ||
+        review.Name ||
+        review.clientName ||
+        review.client ||
+        "Client";
+
+
+      const rating =
+        Number(
+          review.rating ||
+          review.Rating ||
+          review.stars ||
+          0
+        );
+
+
+      const message =
+        review.message ||
+        review.Message ||
+        review.review ||
+        review.Review ||
+        review.text ||
+        "";
+
+
+      const session =
+        review.session ||
+        review.Session ||
+        review.session_type ||
+        review.sessionType ||
+        "Photography Session";
+
+
+      const timestamp =
+        review.timestamp ||
+        review.Timestamp ||
+        review.date ||
+        review.Date ||
+        "";
+
+
+      const card =
+        document.createElement("article");
+
+      card.className = "review-card";
+      card.style.opacity = "1";
+      card.style.visibility = "visible";
+      card.style.transform = "none";
+
+
+      card.innerHTML = `
+
+        <div
+          class="review-stars"
+          aria-label="${rating} out of 5 stars"
+        >
+          ${createStars(rating)}
+        </div>
+
+
+        <p class="review-message">
+          “${escapeReviewText(message)}”
+        </p>
+
+
+        <div class="review-card-footer">
+
+          <div class="review-avatar">
+            ${escapeReviewText(
+              getInitial(name)
+            )}
+          </div>
+
+
+          <div>
+
+            <p class="review-author">
+              ${escapeReviewText(name)}
+            </p>
+
+            <span class="review-session">
+              ${escapeReviewText(session)}
+            </span>
+
+          </div>
+
+
+          ${
+            timestamp
+              ? `
+                <span class="review-date">
+                  ${escapeReviewText(
+                    formatReviewDate(timestamp)
+                  )}
+                </span>
+              `
+              : ""
+          }
+
+        </div>
+
+      `;
+
+
+      reviewsContainer.appendChild(card);
+
+
+      
+
+    });
+
+
+    updateReviewSummary(reviews);
+
+
+  } catch (error) {
+
+    console.error(
+      "ERROR LOADING REVIEWS:",
+      error
+    );
+
+
+    reviewsContainer.innerHTML = `
+
+      <div class="reviews-empty">
+
+        <p>
+          We're having trouble loading
+          the client stories right now.
+        </p>
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// REVIEW SUMMARY
+// ═══════════════════════════════════════════════════════════════════════
+
+function updateReviewSummary(reviews) {
+
+  const averageElement =
+    document.getElementById(
+      "reviewsAverage"
+    );
+
+  const starsElement =
+    document.getElementById(
+      "reviewsAverageStars"
+    );
+
+  const countElement =
+    document.getElementById(
+      "reviewsCount"
+    );
+
+
+  if (
+    !averageElement ||
+    !starsElement ||
+    !countElement
+  ) {
+
+    return;
+
+  }
+
+
+  if (!reviews.length) {
+
+    averageElement.textContent =
+      "0.0";
+
+    starsElement.innerHTML =
+      '<span class="empty">★★★★★</span>';
+
+    countElement.textContent =
+      "0 reviews";
+
+    return;
+
+  }
+
+
+  const total =
+    reviews.reduce(
+      (sum, review) =>
+        sum +
+        (Number(review.rating) || 0),
+      0
+    );
+
+
+  const average =
+    total / reviews.length;
+
+
+  averageElement.textContent =
+    average.toFixed(1);
+
+
+  starsElement.innerHTML =
+    createStars(
+      Math.round(average)
+    );
+
+
+  countElement.textContent =
+    `${reviews.length} ${
+      reviews.length === 1
+        ? "review"
+        : "reviews"
+    }`;
+
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// SUBMIT REVIEW
+// ═══════════════════════════════════════════════════════════════════════
+
+if (reviewForm) {
+
+  reviewForm.addEventListener(
+    "submit",
+    async (event) => {
+
+      event.preventDefault();
+
+
+      const submitButton =
+        document.getElementById(
+          "submitReviewBtn"
+        );
+
+
+      const formData =
+        new FormData(reviewForm);
+
+
+      const name =
+        String(
+          formData.get("name") || ""
+        ).trim();
+
+
+      const message =
+        String(
+          formData.get("message") || ""
+        ).trim();
+
+
+      const rating =
+        Number(
+          formData.get("rating")
+        );
+
+
+      // ─────────────────────────────────────────────────────────────
+      // VALIDATION
+      // ─────────────────────────────────────────────────────────────
+
+      if (!name) {
+
+        alert(
+          "Please enter your name."
+        );
+
+        return;
+
+      }
+
+
+      if (
+        !Number.isInteger(rating) ||
+        rating < 1 ||
+        rating > 5
+      ) {
+
+        alert(
+          "Please choose a rating from 1 to 5 stars."
+        );
+
+        return;
+
+      }
+
+
+      if (!message) {
+
+        alert(
+          "Please write a review."
+        );
+
+        return;
+
+      }
+
+
+      if (message.length > 1200) {
+
+        alert(
+          "Your review is too long."
+        );
+
+        return;
+
+      }
+
+
+      // ─────────────────────────────────────────────────────────────
+      // BUTTON STATE
+      // ─────────────────────────────────────────────────────────────
+
+      submitButton.disabled =
+        true;
+
+
+      submitButton.querySelector(
+        "span:first-child"
+      ).textContent =
+        "Submitting...";
+
+
+      try {
+
+        const response =
+          await fetch(
+            REVIEWS_API_URL,
+            {
+              method: "POST",
+
+              mode: "cors",
+
+              headers: {
+                "Content-Type":
+                  "text/plain"
+              },
+
+              body: JSON.stringify({
+
+                action:
+                  "submit_review",
+
+                name:
+                  name,
+
+                rating:
+                  rating,
+
+                message:
+                  message,
+
+                session:
+                  "Photography"
+
+              })
+
+            }
+          );
+
+
+        const result =
+          await response.json();
+
+
+        if (!result.success) {
+
+          throw new Error(
+            result.error ||
+            "Submission failed."
+          );
+
+        }
+
+
+        // ─────────────────────────────────────────────────────────
+        // SUCCESS
+        // ─────────────────────────────────────────────────────────
+
+        reviewForm.style.display =
+          "none";
+
+
+        const successMessage =
+          document.getElementById(
+            "reviewSuccessMessage"
+          );
+
+
+        if (successMessage) {
+
+          successMessage.style.display =
+            "block";
+
+        }
+
+
+        // Refresh the reviews immediately.
+        // Because Apps Script automatically saves
+        // the review as Approved = TRUE.
+
+        setTimeout(
+          loadDynamicReviews,
+          500
+        );
+
+
+      } catch (error) {
+
+        console.error(
+          "Review submission error:",
+          error
+        );
+
+
+        alert(
+          error.message ||
+          "There was an issue submitting your review. Please try again."
+        );
+
+
+        submitButton.disabled =
+          false;
+
+
+        submitButton.querySelector(
+          "span:first-child"
+        ).textContent =
+          "Share My Review";
+
+      }
+
+    }
+  );
+
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// INITIALIZE
+// ═══════════════════════════════════════════════════════════════════════
+
+loadDynamicReviews();
+  </script>
+
+  
 </body>
 </html>

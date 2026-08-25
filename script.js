@@ -4,7 +4,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyKQjD9xQvt4fBl3z79dMEP3nU8f6qXLBrtS2cFLHa7897kHnzbtHm66WdBfhT3T1rx/exec";
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNkuyiRADG4TyBvmeg8AvU6b6FPkpOGQZ7C5HIkUjR7gOAF2sagL2f1tGIfJr269jY/exec";
 
   // --- 1. NAVBAR SCROLL ---
   const navbar = document.getElementById('navbar');
