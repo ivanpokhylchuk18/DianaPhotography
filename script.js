@@ -363,6 +363,124 @@ document.addEventListener('DOMContentLoaded', () => {
     loadPortfolioFolders();
   }
 
+  // --- 12. SERVICES SLIDESHOW ---
+  const servicesShowcase = document.getElementById('servicesShowcase');
+  if (servicesShowcase) {
+    const serviceCards = Array.from(servicesShowcase.querySelectorAll('.service-card'));
+    const servicesDots = document.getElementById('servicesDots');
+    const servicesPrevious = servicesShowcase.querySelector('.services-prev');
+    const servicesNext = servicesShowcase.querySelector('.services-next');
+    let serviceIndex = 0;
+    let servicesTimer;
+
+    function showService(index) {
+      serviceIndex = (index + serviceCards.length) % serviceCards.length;
+      serviceCards.forEach((card, cardIndex) => {
+        const isActive = cardIndex === serviceIndex;
+        card.classList.toggle('active', isActive);
+        card.classList.toggle('visible', isActive);
+      });
+      if (servicesDots) {
+        servicesDots.querySelectorAll('button').forEach((dot, dotIndex) => {
+          dot.classList.toggle('active', dotIndex === serviceIndex);
+          dot.setAttribute('aria-current', dotIndex === serviceIndex ? 'true' : 'false');
+        });
+      }
+    }
+
+    function restartServicesTimer() {
+      clearInterval(servicesTimer);
+      if (!prefersReducedMotion) servicesTimer = setInterval(() => showService(serviceIndex + 1), 8000);
+    }
+
+    if (servicesDots) {
+      serviceCards.forEach((card, cardIndex) => {
+        const dot = document.createElement('button');
+        dot.type = 'button';
+        dot.setAttribute('aria-label', `View ${card.querySelector('.service-title').textContent} service`);
+        dot.addEventListener('click', () => {
+          showService(cardIndex);
+          restartServicesTimer();
+        });
+        servicesDots.appendChild(dot);
+      });
+    }
+
+    servicesPrevious?.addEventListener('click', () => {
+      showService(serviceIndex - 1);
+      restartServicesTimer();
+    });
+    servicesNext?.addEventListener('click', () => {
+      showService(serviceIndex + 1);
+      restartServicesTimer();
+    });
+    servicesShowcase.addEventListener('mouseenter', () => clearInterval(servicesTimer));
+    servicesShowcase.addEventListener('mouseleave', restartServicesTimer);
+    showService(0);
+    restartServicesTimer();
+  }
+
+  // --- 13. EXPERIENCE PORTFOLIO SLIDESHOW ---
+  const experienceShowcase = document.getElementById('experiencePortfolioShowcase');
+  if (experienceShowcase) {
+    const experiencePhoto = document.getElementById('experiencePortfolioPhoto');
+    const experiencePhotoLink = document.getElementById('experiencePortfolioPhotoLink');
+    const experienceCategory = document.getElementById('experiencePortfolioCategory');
+    const experienceProgress = document.getElementById('experiencePortfolioProgress');
+    const experienceDots = document.getElementById('experiencePortfolioDots');
+    const experiencePrevious = document.getElementById('experiencePortfolioPrev');
+    const experienceNext = document.getElementById('experiencePortfolioNext');
+    const experienceSlides = [
+      { src: 'images/Weddings%20Portraits-20260822T183305Z-1-001/Weddings%20Portraits/IMG_2919.jpg', alt: 'Wedding celebration' },
+      { src: 'images/Engagement%20Portraits-20260822T183310Z-1-001/Engagement%20Portraits/IMG_9552.jpg', alt: 'Engagement portrait' },
+      { src: 'images/Family%20Portraits-20260822T183309Z-1-001/Family%20Portraits/IMG_1656.jpg', alt: 'Family portrait' },
+      { src: 'images/Maternity%20Portraits-20260822T183308Z-1-001/Maternity%20Portraits/IMG_7066.jpg', alt: 'Maternity portrait' },
+      { src: 'images/Senior%20Portraits-20260822T183307Z-1-001/Senior%20Portraits/IMG_0471.jpg', alt: 'Senior portrait' }
+    ];
+    let experienceIndex = 0;
+    let experienceTimer;
+
+    function showExperienceSlide(index, animate = true) {
+      experienceIndex = (index + experienceSlides.length) % experienceSlides.length;
+      const slide = experienceSlides[experienceIndex];
+      if (animate) experiencePhotoLink.classList.add('is-changing');
+      const update = () => {
+        experiencePhoto.src = slide.src;
+        experiencePhoto.alt = slide.alt;
+        experienceCategory.textContent = slide.category;
+        experienceProgress.textContent = `${String(experienceIndex + 1).padStart(2, '0')} / ${String(experienceSlides.length).padStart(2, '0')}`;
+        experiencePhotoLink.classList.remove('is-changing');
+      };
+      if (animate) setTimeout(update, 250);
+      else update();
+      experienceDots.querySelectorAll('button').forEach((dot, dotIndex) => dot.classList.toggle('active', dotIndex === experienceIndex));
+    }
+
+    experienceSlides.forEach((slide, slideIndex) => {
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'portfolio-showcase-dot';
+      dot.setAttribute('aria-label', `View ${slide.category} portrait`);
+      dot.addEventListener('click', () => { showExperienceSlide(slideIndex); restartExperienceTimer(); });
+      experienceDots.appendChild(dot);
+    });
+    function restartExperienceTimer() {
+      clearInterval(experienceTimer);
+      if (!prefersReducedMotion) experienceTimer = setInterval(() => showExperienceSlide(experienceIndex + 1), 8000);
+    }
+    experiencePrevious.addEventListener('click', () => { showExperienceSlide(experienceIndex - 1); restartExperienceTimer(); });
+    experienceNext.addEventListener('click', () => { showExperienceSlide(experienceIndex + 1); restartExperienceTimer(); });
+    experienceShowcase.addEventListener('mouseenter', () => clearInterval(experienceTimer));
+    experienceShowcase.addEventListener('mouseleave', restartExperienceTimer);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') showExperienceSlide(experienceIndex - 1);
+      if (event.key === 'ArrowRight') showExperienceSlide(experienceIndex + 1);
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') restartExperienceTimer();
+    });
+    showExperienceSlide(0, false);
+    restartExperienceTimer();
+  }
+
   // Apply tilt to any existing portfolio items on other pages (index, etc.)
   const existingPortfolioItems = document.querySelectorAll('.portfolio-item');
   if (existingPortfolioItems.length) applyTiltEffect(Array.from(existingPortfolioItems));
@@ -402,4 +520,8 @@ function handleLightboxKeydown(e) {
   if (e.key === 'Escape') {
     closeLightbox();
   }
+
+
+
+  
 }

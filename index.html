@@ -104,7 +104,7 @@
   <!-- ══════════════════════════════════════════════════════════ -->
   <!--  SERVICES                                                  -->
   <!-- ══════════════════════════════════════════════════════════ -->
-  <section class="services">
+  <section class="services" id="servicesShowcase">
     <div class="services-header reveal">
       <p class="section-label">What I Offer</p>
       <h2 class="section-title">Crafted for your story</h2>
@@ -115,7 +115,7 @@
       </p>
     </div>
 
-    <div class="services-grid">
+    <div class="services-grid services-slideshow">
       <div class="service-card reveal">
         <div class="service-icon">◇</div>
         <h3 class="service-title">Weddings</h3>
@@ -146,6 +146,12 @@
         <span class="service-price">Starting at $250</span>
       </div>
     </div>
+
+    <div class="services-controls" aria-label="Services slideshow controls">
+      <button class="services-arrow services-prev" type="button" aria-label="Previous service">←</button>
+      <div class="services-dots" id="servicesDots"></div>
+      <button class="services-arrow services-next" type="button" aria-label="Next service">→</button>
+    </div>
   </section>
 
   <!-- ══════════════════════════════════════════════════════════ -->
@@ -160,63 +166,67 @@
       <a href="portfolio.html" class="view-all-link reveal">View All Work <span>→</span></a>
     </div>
 
-    <div class="portfolio-grid">
-      <!-- Large item spans 2 rows -->
-      <a href="portfolio.html" class="portfolio-item large">
-        <img
-          src="images/Engagement%20Portraits-20260822T183310Z-1-001/Engagement%20Portraits/IMG_3925.jpg"
-          alt="Wedding ceremony"
-          loading="lazy"
-        />
-        <div class="portfolio-overlay">
-          <span class="portfolio-label">Weddings</span>
-        </div>
-      </a>
+    <div class="portfolio-showcase" id="portfolioShowcase">
 
-      <a href="portfolio.html" class="portfolio-item">
-        <img
-          src="images/Family%20Portraits-20260822T183309Z-1-001/Family%20Portraits/IMG_1338.jpg"
-          alt="Engagement session"
-          loading="lazy"
-        />
-        <div class="portfolio-overlay">
-          <span class="portfolio-label">Engagements</span>
-        </div>
-      </a>
+  <button
+    class="portfolio-showcase-arrow portfolio-showcase-prev"
+    id="portfolioPrev"
+    type="button"
+    aria-label="Previous photo"
+  >
+    ←
+  </button>
 
-      <a href="portfolio.html" class="portfolio-item">
-        <img
-          src="images/Maternity%20Portraits-20260822T183308Z-1-001/Maternity%20Portraits/IMG_7049.jpg"
-          alt="Portrait session"
-          loading="lazy"
-        />
-        <div class="portfolio-overlay">
-          <span class="portfolio-label">Portraits</span>
-        </div>
-      </a>
 
-      <a href="portfolio.html" class="portfolio-item">
-        <img
-          src="images/Children%27s%20Portraits-20260822T183310Z-1-001/Children_s%20Portraits/IMG_0269.jpg"
-          alt="Elopement"
-          loading="lazy"
-        />
-        <div class="portfolio-overlay">
-          <span class="portfolio-label">Elopements</span>
-        </div>
-      </a>
+  <a
+    href="portfolio.html"
+    class="portfolio-showcase-photo"
+    id="portfolioPhotoLink"
+  >
 
-      <a href="portfolio.html" class="portfolio-item">
-        <img
-          src="images/Senior%20Portraits-20260822T183307Z-1-001/Senior%20Portraits/IMG_0378.jpg"
-          alt="Family session"
-          loading="lazy"
-        />
-        <div class="portfolio-overlay">
-          <span class="portfolio-label">Families</span>
-        </div>
-      </a>
-    </div>
+    <img
+      id="portfolioPhoto"
+      src="images/Engagement%20Portraits-20260822T183310Z-1-001/Engagement%20Portraits/IMG_3925.jpg"
+      alt="Wedding photography"
+    />
+
+  </a>
+
+
+  <button
+    class="portfolio-showcase-arrow portfolio-showcase-next"
+    id="portfolioNext"
+    type="button"
+    aria-label="Next photo"
+  >
+    →
+  </button>
+
+</div>
+
+
+<div class="portfolio-showcase-bottom">
+
+  <div class="portfolio-showcase-category">
+    <span id="portfolioCategory">
+      Weddings
+    </span>
+  </div>
+
+  <div
+    class="portfolio-showcase-progress"
+    id="portfolioProgress"
+  >
+    01 / 05
+  </div>
+
+</div>
+
+
+<div
+  class="portfolio-showcase-dots"
+  id="portfolioDots"
+></div>
   </section>
 
   <!-- ══════════════════════════════════════════════════════════ -->
@@ -1171,6 +1181,548 @@ if (reviewForm) {
 // ═══════════════════════════════════════════════════════════════════════
 
 loadDynamicReviews();
+
+/* ================================================================
+   HOMEPAGE PORTFOLIO — EDITORIAL SLIDESHOW
+   ================================================================ */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function () {
+
+    const showcase =
+      document.getElementById(
+        "portfolioShowcase"
+      );
+
+    const photo =
+      document.getElementById(
+        "portfolioPhoto"
+      );
+
+    const photoLink =
+      document.getElementById(
+        "portfolioPhotoLink"
+      );
+
+    const category =
+      document.getElementById(
+        "portfolioCategory"
+      );
+
+    const progress =
+      document.getElementById(
+        "portfolioProgress"
+      );
+
+    const dots =
+      document.getElementById(
+        "portfolioDots"
+      );
+
+    const previous =
+      document.getElementById(
+        "portfolioPrev"
+      );
+
+    const next =
+      document.getElementById(
+        "portfolioNext"
+      );
+
+
+    /* Don't run if slideshow isn't on page */
+
+    if (
+      !showcase ||
+      !photo ||
+      !category ||
+      !progress ||
+      !dots
+    ) {
+      return;
+    }
+
+
+    /* ============================================================
+       IMAGES
+       ============================================================ */
+
+    const portfolioImages = [
+
+      {
+        src:
+          "images/Engagement%20Portraits-20260822T183310Z-1-001/Engagement%20Portraits/IMG_3925.jpg",
+
+        
+        alt:
+          "Wedding photography"
+      },
+
+
+      {
+        src:
+          "images/Family%20Portraits-20260822T183309Z-1-001/Family%20Portraits/IMG_1338.jpg",
+
+        
+
+        alt:
+          "Engagement photography"
+      },
+
+
+      {
+        src:
+          "images/Maternity%20Portraits-20260822T183308Z-1-001/Maternity%20Portraits/IMG_7049.jpg",
+
+        
+
+        alt:
+          "Portrait photography"
+      },
+
+
+      {
+        src:
+          "images/Children%27s%20Portraits-20260822T183310Z-1-001/Children_s%20Portraits/IMG_0269.jpg",
+
+        
+
+        alt:
+          "Elopement photography"
+      },
+
+
+      {
+        src:
+          "images/Senior%20Portraits-20260822T183307Z-1-001/Senior%20Portraits/IMG_0378.jpg",
+
+       
+        alt:
+          "Family photography"
+      }
+
+    ];
+
+
+    let currentIndex = 0;
+
+    let autoplay;
+
+
+    /* ============================================================
+       RENDER
+       ============================================================ */
+
+    function renderSlide(
+      index,
+      animate = true
+    ) {
+
+      currentIndex = index;
+
+
+      const item =
+        portfolioImages[
+          currentIndex
+        ];
+
+
+      if (animate) {
+
+        photoLink.classList.add(
+          "is-changing"
+        );
+
+
+        setTimeout(
+          function () {
+
+            photo.src =
+              item.src;
+
+            photo.alt =
+              item.alt;
+
+            category.textContent =
+              item.category;
+
+            progress.textContent =
+              String(
+                currentIndex + 1
+              ).padStart(2, "0")
+              +
+              " / "
+              +
+              String(
+                portfolioImages.length
+              ).padStart(2, "0");
+
+
+            photoLink.classList.remove(
+              "is-changing"
+            );
+
+          },
+          250
+        );
+
+      } else {
+
+        photo.src =
+          item.src;
+
+        photo.alt =
+          item.alt;
+
+        category.textContent =
+          item.category;
+
+        progress.textContent =
+          String(
+            currentIndex + 1
+          ).padStart(2, "0")
+          +
+          " / "
+          +
+          String(
+            portfolioImages.length
+          ).padStart(2, "0");
+
+      }
+
+
+      updateDots();
+
+    }
+
+
+    /* ============================================================
+       DOTS
+       ============================================================ */
+
+    function createDots() {
+
+      dots.innerHTML = "";
+
+
+      portfolioImages.forEach(
+        function (_, index) {
+
+          const dot =
+            document.createElement(
+              "button"
+            );
+
+
+          dot.type =
+            "button";
+
+
+          dot.className =
+            "portfolio-showcase-dot";
+
+
+          dot.setAttribute(
+            "aria-label",
+            "View portfolio image "
+            +
+            (index + 1)
+          );
+
+
+          dot.addEventListener(
+            "click",
+            function () {
+
+              renderSlide(
+                index
+              );
+
+              restartAutoplay();
+
+            }
+          );
+
+
+          dots.appendChild(
+            dot
+          );
+
+        }
+      );
+
+
+      updateDots();
+
+    }
+
+
+    function updateDots() {
+
+      const allDots =
+        dots.querySelectorAll(
+          ".portfolio-showcase-dot"
+        );
+
+
+      allDots.forEach(
+        function (
+          dot,
+          index
+        ) {
+
+          dot.classList.toggle(
+            "active",
+            index === currentIndex
+          );
+
+        }
+      );
+
+    }
+
+
+    /* ============================================================
+       NEXT
+       ============================================================ */
+
+    function nextSlide() {
+
+      const nextIndex =
+        (
+          currentIndex + 1
+        )
+        %
+        portfolioImages.length;
+
+
+      renderSlide(
+        nextIndex
+      );
+
+    }
+
+
+    /* ============================================================
+       PREVIOUS
+       ============================================================ */
+
+    function previousSlide() {
+
+      const previousIndex =
+        (
+          currentIndex -
+          1 +
+          portfolioImages.length
+        )
+        %
+        portfolioImages.length;
+
+
+      renderSlide(
+        previousIndex
+      );
+
+    }
+
+
+    /* ============================================================
+       BUTTONS
+       ============================================================ */
+
+    if (next) {
+
+      next.addEventListener(
+        "click",
+        function () {
+
+          nextSlide();
+
+          restartAutoplay();
+
+        }
+      );
+
+    }
+
+
+    if (previous) {
+
+      previous.addEventListener(
+        "click",
+        function () {
+
+          previousSlide();
+
+          restartAutoplay();
+
+        }
+      );
+
+    }
+
+
+    /* ============================================================
+       AUTOPLAY
+       ============================================================ */
+
+    function startAutoplay() {
+
+      autoplay =
+        setInterval(
+          nextSlide,
+          800000
+        );
+
+    }
+
+
+    function stopAutoplay() {
+
+      clearInterval(
+        autoplay
+      );
+
+    }
+
+
+    function restartAutoplay() {
+
+      stopAutoplay();
+
+      startAutoplay();
+
+    }
+
+
+    showcase.addEventListener(
+      "mouseenter",
+      stopAutoplay
+    );
+
+
+    showcase.addEventListener(
+      "mouseleave",
+      startAutoplay
+    );
+
+
+    /* ============================================================
+       KEYBOARD
+       ============================================================ */
+
+    document.addEventListener(
+      "keydown",
+      function (event) {
+
+        if (
+          event.key === "ArrowRight"
+        ) {
+
+          nextSlide();
+
+          restartAutoplay();
+
+        }
+
+
+        if (
+          event.key === "ArrowLeft"
+        ) {
+
+          previousSlide();
+
+          restartAutoplay();
+
+        }
+
+      }
+    );
+
+
+    /* ============================================================
+       MOBILE SWIPE
+       ============================================================ */
+
+    let touchStartX = 0;
+
+
+    showcase.addEventListener(
+      "touchstart",
+      function (event) {
+
+        touchStartX =
+          event.touches[0]
+            .clientX;
+
+      },
+      {
+        passive: true
+      }
+    );
+
+
+    showcase.addEventListener(
+      "touchend",
+      function (event) {
+
+        const touchEndX =
+          event.changedTouches[0]
+            .clientX;
+
+
+        const difference =
+          touchStartX -
+          touchEndX;
+
+
+        if (
+          Math.abs(difference) < 50
+        ) {
+
+          return;
+
+        }
+
+
+        if (
+          difference > 0
+        ) {
+
+          nextSlide();
+
+        } else {
+
+          previousSlide();
+
+        }
+
+
+        restartAutoplay();
+
+      },
+      {
+        passive: true
+      }
+    );
+
+
+    /* ============================================================
+       INITIALIZE
+       ============================================================ */
+
+    createDots();
+
+    renderSlide(
+      0,
+      false
+    );
+
+    startAutoplay();
+
+  }
+);
   </script>
 
   
