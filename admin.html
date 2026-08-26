@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="images/logo.png" type="image/x-icon" />
   <title>Studio Control Centre — Diana Obermeyer Photography</title>
   <style>
     :root {
@@ -182,7 +183,7 @@
 <div class="modal-overlay" id="galleryModal"><div class="modal"><div class="modal-header"><h2>Client Gallery Workspace</h2><button class="close-modal" onclick="closeGalleryModal()">×</button></div><div id="galleryModalContent"></div></div></div>
 
 <script>
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNkuyiRADG4TyBvmeg8AvU6b6FPkpOGQZ7C5HIkUjR7gOAF2sagL2f1tGIfJr269jY/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu4_aFDh8UtdsWf2FSQhr1sHnJM-UzY6FlpmJuD67-bHF_LnhS0xv1FvxQcFrup4Td/exec";
 let adminToken = "";
 let allBookings = [];
 let allReviews = [];
@@ -403,43 +404,156 @@ function convertToBase64(file) { return new Promise((resolve, reject) => { const
 
 // Client Galleries Functions
 async function loadGalleries() {
-  const tbody = document.getElementById('galleriesList');
+
+  const tbody = document.getElementById("galleriesList");
+
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6">Loading galleries...</td></tr>';
+
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="6" style="padding:40px; text-align:center;">
+        Loading galleries...
+      </td>
+    </tr>
+  `;
+
   try {
-    const res = await fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: 'admin_list_galleries', token: adminToken })
-    });
-    const data = await res.json();
-    if (data.success) {
-      renderGalleries(data.galleries);
-    } else {
-      tbody.innerHTML = '<tr><td colspan="6">Error loading galleries: '+escapeHtml(data.error)+'</td></tr>';
+
+    const response = await fetch(
+      `${GOOGLE_SCRIPT_URL}?action=admin_list_galleries&token=${encodeURIComponent(adminToken)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
     }
-  } catch(e) { tbody.innerHTML = '<tr><td colspan="6">Network connection failure.</td></tr>'; }
+
+    const data = await response.json();
+
+    console.log("Gallery API response:", data);
+
+    if (data.success) {
+
+      renderGalleries(data.galleries || []);
+
+    } else {
+
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="padding:40px; text-align:center; color:#9C2A2A;">
+            Error loading galleries:
+            ${escapeHtml(data.error || "Unknown server error")}
+          </td>
+        </tr>
+      `;
+
+    }
+
+  } catch (e) {
+
+    console.error("Gallery loading error:", e);
+
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="padding:40px; text-align:center; color:#9C2A2A;">
+          Failed to load galleries.
+          <br>
+          <small>${escapeHtml(e.message)}</small>
+        </td>
+      </tr>
+    `;
+
+  }
 }
 
 function renderGalleries(galleries) {
-  const tbody = document.getElementById('galleriesList');
-  tbody.innerHTML = '';
-  if(!galleries || galleries.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">No private client hubs built yet.</td></tr>';
+
+  const tbody = document.getElementById("galleriesList");
+
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  if (!Array.isArray(galleries) || galleries.length === 0) {
+
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6"
+            style="text-align:center; padding:20px;">
+          No private client hubs built yet.
+        </td>
+      </tr>
+    `;
+
     return;
   }
+
   galleries.forEach(g => {
-    const link = `${window.location.origin}/gallery.html?id=${g.id}`;
-    const tr = document.createElement('tr');
+
+    const galleryId = String(g.id || "");
+    const clientName = String(g.client_name || "—");
+    const password = String(g.password || "N/A");
+    const imageCount = Number(g.image_count) || 0;
+
+    const link =
+      `${window.location.origin}/gallery.html?id=${encodeURIComponent(galleryId)}`;
+
+    const tr = document.createElement("tr");
+
     tr.innerHTML = `
-      <td><strong>${escapeHtml(g.id)}</strong></td>
-      <td>${escapeHtml(g.client_name || '—')}</td>
-      <td><code style="background:#FAF7F4; border:1px solid var(--border-color); padding:4px 8px; font-family:monospace; font-size:13px; font-weight:bold; color:#B8976A;">${escapeHtml(g.password || 'N/A')}</code></td>
-      <td>${g.image_count || 0}</td>
-      <td><a href="${link}" target="_blank" style="color:var(--accent-gold); text-decoration:none; font-weight:bold;">🔗 Launch Hub</a></td>
-      <td><button class="action-btn" onclick="editGallery('${g.id}')">Modify Files</button></td>
+
+      <td>
+        <strong>${escapeHtml(galleryId)}</strong>
+      </td>
+
+      <td>
+        ${escapeHtml(clientName)}
+      </td>
+
+      <td>
+        <code style="
+          background:#FAF7F4;
+          border:1px solid var(--border-color);
+          padding:4px 8px;
+          font-family:monospace;
+          font-size:13px;
+          font-weight:bold;
+          color:#B8976A;
+        ">
+          ${escapeHtml(password)}
+        </code>
+      </td>
+
+      <td>
+        ${imageCount}
+      </td>
+
+      <td>
+        <a
+          href="${link}"
+          target="_blank"
+          style="
+            color:var(--accent-gold);
+            text-decoration:none;
+            font-weight:bold;
+          "
+        >
+          🔗 Launch Hub
+        </a>
+      </td>
+
+      <td>
+        <button
+          class="action-btn"
+          onclick="editGallery('${escapeHtml(galleryId)}')"
+        >
+          Modify Files
+        </button>
+      </td>
+
     `;
+
     tbody.appendChild(tr);
+
   });
 }
 
@@ -509,12 +623,21 @@ async function uploadToGallery(galleryId) {
 function closeGalleryModal() { document.getElementById('galleryModal').classList.remove('active'); }
 
 // Helper
-function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/[&<>]/g, function(m) {
+function escapeHtml(value) {
+
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  const str = String(value);
+
+  return str.replace(/[&<>"]/g, function(m) {
+
     if (m === '&') return '&amp;';
     if (m === '<') return '&lt;';
     if (m === '>') return '&gt;';
+    if (m === '"') return '&quot;';
+
     return m;
   });
 }
