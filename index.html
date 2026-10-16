@@ -51,7 +51,7 @@
       <a href="contact.html">Contact</a>
     </nav>
     <div class="mobile-menu-footer">
-      <a href="mailto:dianaobermeyerphotogrpahy@gmail.com">dianaobermeyerphotogrpahy@gmail.com</a>
+      <a href="mailto:dianaobermeyerphotography@gmail.com">dianaobermeyerphotography@gmail.com</a>
       <div class="mobile-social">
         <a href="https://www.instagram.com/dtkachuk_photography/" target="_blank" rel="noopener">Instagram</a>
         <a href="https://www.facebook.com/DianaTPhotography" target="_blank" rel="noopener">Facebook</a>
@@ -328,7 +328,7 @@
     <div id="reviewSuccessMessage" class="review-success" style="display:none;">
       <div class="success-check">✓</div>
       <h4>Thank You</h4>
-      <p>Your kind words have been received. We truly appreciate you taking the time to share your experience.</p>
+      <p>Your review has been received and will appear after approval. Thank you for sharing your experience.</p>
     </div>
   </div>
 </section>
@@ -408,7 +408,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 const REVIEWS_API_URL =
-  "https://script.google.com/macros/s/AKfycbzu4_aFDh8UtdsWf2FSQhr1sHnJM-UzY6FlpmJuD67-bHF_LnhS0xv1FvxQcFrup4Td/exec";
+  "https://script.google.com/macros/s/AKfycbxUkgLViOMD0GbErmQMXQzmdhq4u0YxLL6pDmzNCCp8rEA_YoP98Eq9zi6ar4PTaZLf/exec";
 
 
 const reviewsContainer =
@@ -673,7 +673,7 @@ async function loadDynamicReviews() {
 
     const data = await response.json();
 
-    console.log("REVIEWS API RESPONSE:", data);
+    if (data.success === false) throw new Error(data.error || 'Reviews are temporarily unavailable.');
 
     // Handle all possible response structures
     let reviews = [];
@@ -698,7 +698,6 @@ async function loadDynamicReviews() {
     }
 
 
-    console.log("REVIEWS FOUND:", reviews);
 
 
     if (reviews.length === 0) {
@@ -718,7 +717,7 @@ async function loadDynamicReviews() {
 
 
     // Newest first
-    reviews = [...reviews].reverse();
+    // The API already returns newest reviews first.
 
 
     reviewsContainer.innerHTML = "";
@@ -975,6 +974,8 @@ if (reviewForm) {
         );
 
 
+      if (submitButton.disabled) return;
+
       const formData =
         new FormData(reviewForm);
 
@@ -1137,9 +1138,7 @@ if (reviewForm) {
         }
 
 
-        // Refresh the reviews immediately.
-        // Because Apps Script automatically saves
-        // the review as Approved = TRUE.
+        // Refresh approved reviews. New submissions await moderation.
 
         setTimeout(
           loadDynamicReviews,
@@ -1257,8 +1256,8 @@ document.addEventListener(
           "images/Engagement%20Portraits-20260822T183310Z-1-001/Engagement%20Portraits/IMG_3925.jpg",
 
         
-        alt:
-          "Wedding photography"
+        category: "Engagement",
+        alt: "Engagement photography"
       },
 
 
@@ -1268,8 +1267,8 @@ document.addEventListener(
 
         
 
-        alt:
-          "Engagement photography"
+        category: "Family",
+        alt: "Family photography"
       },
 
 
@@ -1279,8 +1278,8 @@ document.addEventListener(
 
         
 
-        alt:
-          "Portrait photography"
+        category: "Maternity",
+        alt: "Maternity photography"
       },
 
 
@@ -1290,8 +1289,8 @@ document.addEventListener(
 
         
 
-        alt:
-          "Elopement photography"
+        category: "Children",
+        alt: "Children photography"
       },
 
 
@@ -1300,8 +1299,8 @@ document.addEventListener(
           "images/Senior%20Portraits-20260822T183307Z-1-001/Senior%20Portraits/IMG_0378.jpg",
 
        
-        alt:
-          "Family photography"
+        category: "Senior",
+        alt: "Senior photography"
       }
 
     ];

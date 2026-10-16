@@ -1,10 +1,11 @@
+function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 /* ═══════════════════════════════════════════════════════════════════════════
    script.js — Diana Obermeyer Photography (Full)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu4_aFDh8UtdsWf2FSQhr1sHnJM-UzY6FlpmJuD67-bHF_LnhS0xv1FvxQcFrup4Td/exec";
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxUkgLViOMD0GbErmQMXQzmdhq4u0YxLL6pDmzNCCp8rEA_YoP98Eq9zi6ar4PTaZLf/exec";
 
   // --- 1. NAVBAR SCROLL ---
   const navbar = document.getElementById('navbar');
@@ -65,7 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- 5. SMOOTH SCROLL ---
   document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
     anchor.addEventListener('click', (e) => {
-      const target = document.querySelector(anchor.getAttribute('href'));
+      const fragment = anchor.getAttribute('href').slice(1);
+      if (!fragment) { e.preventDefault(); return; }
+      let target;
+      try { target = document.getElementById(decodeURIComponent(fragment)); } catch (_) { return; }
       if (target) {
         e.preventDefault();
         const navHeight = navbar ? navbar.offsetHeight : 0;
@@ -159,15 +163,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const heading2 = document.getElementById('step-2-heading');
     const previewContainer = document.getElementById('preview-container');
     let customCalendarInstance = null;
+    let unavailableDates = [];
+    const dateInput = document.getElementById('preferred_date');
+    dateInput.addEventListener('input', () => dateInput.setCustomValidity(
+      unavailableDates.includes(dateInput.value) ? 'Please choose an available date.' : ''
+    ));
 
     function initializePremiumCalendar(disabledDatesArray = []) {
+      unavailableDates = Array.isArray(disabledDatesArray) ? disabledDatesArray : [];
       if (typeof flatpickr !== 'undefined') {
         customCalendarInstance = flatpickr("#preferred_date", {
-          dateFormat: "Y-m-d", minDate: "today", disable: disabledDatesArray,
+          dateFormat: "Y-m-d", minDate: "today", disable: unavailableDates,
           locale: { firstDayOfWeek: 1 },
-          onChange: function(selectedDates, dateStr) { console.log("Selected target date slot:", dateStr); }
+          onChange: function() { dateInput.dispatchEvent(new Event('input')); }
         });
+      } else {
+        dateInput.type = 'date';
+        const today = new Date();
+        dateInput.min = [today.getFullYear(), String(today.getMonth()+1).padStart(2,'0'), String(today.getDate()).padStart(2,'0')].join('-');
       }
+      dateInput.dispatchEvent(new Event('input'));
     }
     async function fetchStudioAvailability() {
       try {
@@ -207,11 +222,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function generatePreview() {
       const formData = new FormData(contactForm);
-      previewContainer.innerHTML = `<div><strong>Session Selection:</strong> ${formData.get('session_type')}</div><div><strong>Full Name:</strong> ${formData.get('name')}</div><div><strong>Email Address:</strong> ${formData.get('email')}</div><div><strong>Phone Number:</strong> ${formData.get('phone') || 'Not provided'}</div><div><strong>Requested Date:</strong> ${formData.get('preferred_date')}</div><div><strong>Location / Venue:</strong> ${formData.get('location') || 'Not provided'}</div><div style="margin-top: 0.75rem; border-top: 1px solid rgba(44,44,44,0.08); padding-top: 0.75rem;"><strong>Vision Details & Notes:</strong><br>${(formData.get('message') || '').replace(/\n/g, '<br>')}</div>`;
+      previewContainer.innerHTML = `<div><strong>Session Selection:</strong> ${escapeHtml(formData.get('session_type'))}</div><div><strong>Full Name:</strong> ${escapeHtml(formData.get('name'))}</div><div><strong>Email Address:</strong> ${escapeHtml(formData.get('email'))}</div><div><strong>Phone Number:</strong> ${escapeHtml(formData.get('phone') || 'Not provided')}</div><div><strong>Requested Date:</strong> ${escapeHtml(formData.get('preferred_date'))}</div><div><strong>Location / Venue:</strong> ${escapeHtml(formData.get('location') || 'Not provided')}</div><div style="margin-top: 0.75rem; border-top: 1px solid rgba(44,44,44,0.08); padding-top: 0.75rem;"><strong>Vision Details & Notes:</strong><br>${escapeHtml(formData.get('message') || '').replace(/\n/g, '<br>')}</div>`;
     }
     contactForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const submitBtn = document.getElementById('submitBtn');
+      if (submitBtn.disabled) return;
       submitBtn.textContent = 'Securing Your Date...';
       submitBtn.disabled = true;
       const formData = new FormData(contactForm);
@@ -227,11 +243,12 @@ document.addEventListener('DOMContentLoaded', () => {
           document.getElementById('success-ref-id').textContent = result.booking_id;
           contactForm.style.display = 'none';
           progressTracking.style.display = 'none';
+          successScreen.hidden = false;
           successScreen.style.display = 'block';
           successScreen.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else { throw new Error(result.error || 'Server rejection.'); }
       } catch (err) {
-        alert(`Submission issue: ${err.message}. Please email dianaobermeyerphotogrpahy@gmail.com directly.`);
+        alert(`Submission issue: ${err.message}. Please email dianaobermeyerphotography@gmail.com directly.`);
         submitBtn.textContent = 'Submit Booking Request';
         submitBtn.disabled = false;
       }
@@ -278,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderPortfolioFolders() {
-      const categories = {};
+      const categories = Object.create(null);
       allImages.forEach(img => {
         const cat = img.category || 'uncategorized';
         if (!categories[cat]) categories[cat] = [];
@@ -303,8 +320,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const card = document.createElement('div');
         card.className = 'portfolio-folder-card';
         card.innerHTML = `
-          <img class="portfolio-folder-cover" src="${images[0].photo_url}" alt="${categoryTitles[cat] || cat} collection cover" loading="lazy">
-          <h3>${categoryTitles[cat] || cat}</h3>
+          <img class="portfolio-folder-cover" src="${escapeHtml(images[0].photo_url)}" alt="${escapeHtml(categoryTitles[cat] || cat)} collection cover" loading="lazy">
+          <h3>${escapeHtml(categoryTitles[cat] || cat)}</h3>
           <p>${images.length} photograph${images.length !== 1 ? 's' : ''}</p>
         `;
         card.addEventListener('click', () => showCategoryImages(cat, categoryTitles[cat] || cat));
@@ -334,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         item.href = '#';
         item.className = 'portfolio-item';
         item.setAttribute('data-category', img.category);
-        item.innerHTML = `<img src="${img.photo_url}" alt="${img.alt_text || img.caption || categoryName}" loading="lazy"><div class="portfolio-overlay"><span class="portfolio-label">${img.caption || categoryName}</span></div>`;
+        item.innerHTML = `<img src="${escapeHtml(img.photo_url)}" alt="${escapeHtml(img.alt_text || img.caption || categoryName)}" loading="lazy"><div class="portfolio-overlay"><span class="portfolio-label">${escapeHtml(img.caption || categoryName)}</span></div>`;
         
         // Add click handler to open lightbox
         item.addEventListener('click', (e) => {
@@ -447,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const update = () => {
         experiencePhoto.src = slide.src;
         experiencePhoto.alt = slide.alt;
-        experienceCategory.textContent = slide.category;
+        experienceCategory.textContent = slide.alt;
         experienceProgress.textContent = `${String(experienceIndex + 1).padStart(2, '0')} / ${String(experienceSlides.length).padStart(2, '0')}`;
         experiencePhotoLink.classList.remove('is-changing');
       };
@@ -460,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const dot = document.createElement('button');
       dot.type = 'button';
       dot.className = 'portfolio-showcase-dot';
-      dot.setAttribute('aria-label', `View ${slide.category} portrait`);
+      dot.setAttribute('aria-label', `View ${slide.alt} portrait`);
       dot.addEventListener('click', () => { showExperienceSlide(slideIndex); restartExperienceTimer(); });
       experienceDots.appendChild(dot);
     });

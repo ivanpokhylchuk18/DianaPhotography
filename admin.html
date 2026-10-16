@@ -182,14 +182,72 @@
 <div class="modal-overlay" id="bookingModal"><div class="modal"><div class="modal-header"><h2>Booking Details</h2><button class="close-modal" onclick="closeBookingModal()">×</button></div><div id="modalContent"></div></div></div>
 <div class="modal-overlay" id="galleryModal"><div class="modal"><div class="modal-header"><h2>Client Gallery Workspace</h2><button class="close-modal" onclick="closeGalleryModal()">×</button></div><div id="galleryModalContent"></div></div></div>
 
+<script data-studio-transport>
+/* Shared admin upload transport. Retries are safe only with the supplied Code.gs. */
+const UploadClient = (() => {
+  function validate(file) {
+    if (!file.size) throw new Error('This file is empty. Choose an image with content.');
+    if (!/\.(jpe?g|png|webp|gif)$/i.test(file.name)) throw new Error('Use JPEG, PNG, WebP or GIF. Export HEIC/RAW images first.');
+  }
+  async function post(url, payload, retry = false) {
+    const body = JSON.stringify(payload);
+    for (let attempt = 0; ; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 120000);
+      try {
+        const response = await fetch(url, {
+          method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body, signal: controller.signal, redirect: 'follow'
+        });
+        if (!response.ok) throw new Error(`Server returned HTTP ${response.status}`);
+        const result = await response.json();
+        if (!result.success) {
+          const error = new Error(result.error || 'Upload rejected');
+          error.permanent = !result.retryable;
+          throw error;
+        }
+        return result;
+      } catch (error) {
+        if (!retry || error.permanent || attempt >= 2) throw error;
+      } finally { clearTimeout(timer); }
+      await new Promise(resolve => setTimeout(resolve, 1000 * (2 ** attempt)));
+    }
+  }
+  async function upload(url, payload, file) {
+    validate(file);
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = () => reject(new Error('Could not read this file.'));
+      reader.onabort = () => reject(new Error('File reading was interrupted.'));
+      reader.readAsDataURL(file);
+    });
+    return post(url, { ...payload, file_data: data, file_name: file.name, file_type: file.type }, true);
+  }
+  // Bound concurrent file reads/requests; do not materialize an entire gallery at once.
+  async function batch(items, process, concurrency = 3) {
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+      while (next < items.length) {
+        const index = next++;
+        await process(items[index], index);
+      }
+    }));
+  }
+  return { post, upload, validate, batch };
+})();
+</script>
 <script>
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu4_aFDh8UtdsWf2FSQhr1sHnJM-UzY6FlpmJuD67-bHF_LnhS0xv1FvxQcFrup4Td/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxUkgLViOMD0GbErmQMXQzmdhq4u0YxLL6pDmzNCCp8rEA_YoP98Eq9zi6ar4PTaZLf/exec";
 let adminToken = "";
 let allBookings = [];
 let allReviews = [];
 let uploadQueue = [];
+let portfolioUploading = false;
+let clientUploading = false;
 
 async function attemptLogin() {
+  if (document.getElementById("loginBtn").disabled) return;
   const tokenInput = document.getElementById("gateToken").value.trim();
   const msgDiv = document.getElementById("gateMsg");
   const loginBtn = document.getElementById("loginBtn");
@@ -203,7 +261,13 @@ async function attemptLogin() {
     });
     const res = await response.json();
     if (res.success) {
+      if (res.upload_protocol !== 2) {
+        showMsg(msgDiv, "error", "Update the Apps Script deployment to the supplied Code.gs before using this admin page.");
+        loginBtn.disabled = false;
+        return;
+      }
       adminToken = tokenInput;
+      document.getElementById("gateToken").value = "";
       document.getElementById("authGate").style.display = "none";
       document.getElementById("dashboard").style.display = "block";
       initDragAndDrop();
@@ -213,7 +277,15 @@ async function attemptLogin() {
       showMsg(msgDiv, "error", res.error || "Access Denied.");
       loginBtn.disabled = false;
     }
-  } catch(err) { showMsg(msgDiv, "error", "Connection failed."); loginBtn.disabled = false; }
+  } catch (err) {
+  console.error("Admin login failed:", err);
+  showMsg(
+    msgDiv,
+    "error",
+    "Login request failed: " + err.message
+  );
+  loginBtn.disabled = false;
+}
 }
 document.getElementById("gateToken").addEventListener("keypress", (e) => { if (e.key === "Enter") attemptLogin(); });
 
@@ -228,25 +300,52 @@ async function loadBookings() {
   const tbody = document.getElementById("bookingTableBody");
   tbody.innerHTML = `<tr><td colspan="5" style="padding:40px; text-align:center;">Loading bookings...</td></tr>`;
   try {
-    const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=admin_fetch_all&token=${adminToken}`);
-    const data = await response.json();
-    if (data.success) {
-      allBookings = data.bookings || [];
-      allReviews = data.reviews || [];
-      renderBookings(allBookings);
-      updateStats(allBookings);
-      renderReviews(allReviews);
-      renderClientDeliveries(allBookings);
+    const data = await UploadClient.post(GOOGLE_SCRIPT_URL, { action: 'admin_fetch_all', token: adminToken });
+    if (!data.success) throw new Error(data.error || 'The studio service rejected the request.');
+    function readRows(key) {
+      if (!Array.isArray(data[key]) || data[key].some(row => !row || typeof row !== 'object' || Array.isArray(row))) {
+        throw new Error(`The studio service returned invalid ${key} data. Check the Apps Script deployment.`);
+      }
+      return data[key];
     }
-  } catch(err) { tbody.innerHTML = `<tr><td colspan="5" style="padding:40px; text-align:center; color:#9C2A2A;">Failed to load bookings.</td></tr>`; }
+    try {
+      allBookings = readRows('bookings');
+      filterBookings();
+      updateStats(allBookings);
+      renderClientDeliveries(allBookings);
+    } catch (err) {
+      allBookings = [];
+      updateStats([]);
+      const message = escapeHtml(err.message);
+      tbody.innerHTML = `<tr><td colspan="5">${message}</td></tr>`;
+      document.getElementById('clientDeliveriesTableBody').innerHTML = `<tr><td colspan="5">${message}</td></tr>`;
+    }
+    try {
+      allReviews = readRows('reviews');
+      renderReviews(allReviews);
+    } catch (err) {
+      allReviews = [];
+      document.getElementById('reviewsTableBody').innerHTML = `<tr><td colspan="6">${escapeHtml(err.message)}</td></tr>`;
+    }
+  } catch(err) {
+    const message = `Failed to load studio data: ${err.message || 'Unknown error'}`;
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:40px; text-align:center; color:#9C2A2A;">${escapeHtml(message)}</td></tr>`;
+    showMsg(document.getElementById('bookingMsg'), 'error', message);
+    for (const id of ['reviewsTableBody', 'clientDeliveriesTableBody']) {
+      const table = document.getElementById(id);
+      if (table) table.innerHTML = `<tr><td colspan="6">${escapeHtml(message)}</td></tr>`;
+    }
+  }
 }
 
 function renderBookings(bookings) {
   const tbody = document.getElementById("bookingTableBody");
   tbody.innerHTML = "";
+  if (!bookings.length) { tbody.innerHTML = `<tr><td colspan="5">No matching bookings.</td></tr>`; return; }
   bookings.forEach(booking => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td><strong>${escapeHtml(booking.name)}</strong><br><span style="color:var(--text-muted); font-size:12px;">${escapeHtml(booking.email)}</span></td><td>${escapeHtml(booking.session_type)}</td><td>${escapeHtml(booking.preferred_date)}</td><td><span class="status-pill booking-status-${booking.status.toLowerCase()}">${booking.status}</span></td><td><button class="action-btn" onclick="openBookingModalById('${booking.booking_id}')">View</button></td>`;
+    tr.innerHTML = `<td><strong>${escapeHtml(booking.name)}</strong><br><span style="color:var(--text-muted); font-size:12px;">${escapeHtml(booking.email)}</span></td><td>${escapeHtml(booking.session_type)}</td><td>${escapeHtml(booking.preferred_date)}</td><td><span class="status-pill booking-status-${escapeHtml(String(booking.status).toLowerCase())}">${escapeHtml(booking.status)}</span></td><td><button class="action-btn" data-booking-view>View</button></td>`;
+    tr.querySelector('[data-booking-view]').addEventListener('click', () => openBookingModalById(booking.booking_id));
     tbody.appendChild(tr);
   });
 }
@@ -266,7 +365,7 @@ function renderReviews(reviews) {
     const tr = document.createElement("tr");
     const isApproved = String(review.approved).toUpperCase() === "TRUE";
     const isFeatured = String(review.featured).toUpperCase() === "TRUE";
-    tr.innerHTML = `<td><strong>${escapeHtml(review.name)}</strong></td><td>${escapeHtml(review.session_type)}</td><td style="max-width:320px; font-size:13px;">${escapeHtml(review.message) || "<em>No content</em>"}</td><td><span style="color:var(--accent-gold);">${"★".repeat(Number(review.rating))}${"☆".repeat(5-Number(review.rating))}</span></td><td><span class="status-pill ${isApproved ? 'booking-status-confirmed' : 'booking-status-pending'}">${isApproved ? 'Approved' : 'Pending'}</span>${isFeatured ? '<br><span class="status-pill booking-status-completed" style="margin-top:5px;">Featured</span>' : ''}</td><td><div style="display:flex; gap:5px;"><button class="action-btn" onclick="moderateReview(${review.row_index}, ${!isApproved}, ${isFeatured})">${isApproved ? 'Hide' : 'Approve'}</button><button class="action-btn" onclick="moderateReview(${review.row_index}, ${isApproved}, ${!isFeatured})">${isFeatured ? 'Unfeature' : 'Feature'}</button></div></td>`;
+    tr.innerHTML = `<td><strong>${escapeHtml(review.name)}</strong></td><td>${escapeHtml(review.session_type)}</td><td style="max-width:320px; font-size:13px;">${escapeHtml(review.message) || "<em>No content</em>"}</td><td><span style="color:var(--accent-gold);">${"★".repeat(Math.max(0, Math.min(5, Math.floor(Number(review.rating) || 0))))}${"☆".repeat(5-Math.max(0, Math.min(5, Math.floor(Number(review.rating) || 0))))}</span></td><td><span class="status-pill ${isApproved ? 'booking-status-confirmed' : 'booking-status-pending'}">${isApproved ? 'Approved' : 'Pending'}</span>${isFeatured ? '<br><span class="status-pill booking-status-completed" style="margin-top:5px;">Featured</span>' : ''}</td><td><div style="display:flex; gap:5px;"><button class="action-btn" onclick="moderateReview(${Number(review.row_index)}, ${!isApproved}, ${isFeatured})">${isApproved ? 'Hide' : 'Approve'}</button><button class="action-btn" onclick="moderateReview(${Number(review.row_index)}, ${isApproved}, ${!isFeatured})">${isFeatured ? 'Unfeature' : 'Feature'}</button></div></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -293,7 +392,7 @@ function renderClientDeliveries(bookings) {
     const quoteSent = String(client.quote_sent).toUpperCase() === "TRUE";
     const depositPaid = String(client.deposit_paid).toUpperCase() === "TRUE";
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td><strong>${escapeHtml(client.name)}</strong><br><span style="color:var(--text-muted); font-size:12px;">Ref ID: ${client.booking_id}</span></td><td>${escapeHtml(client.session_type)}</td><td><span class="status-pill ${quoteSent ? 'booking-status-confirmed' : 'booking-status-pending'}">${quoteSent ? 'Dispatched' : 'Drafting'}</span></td><td><span class="status-pill ${depositPaid ? 'booking-status-confirmed' : 'booking-status-cancelled'}">${depositPaid ? 'Collected' : 'Outstanding'}</span></td><td><span class="status-pill ${client.status === 'Completed' ? 'booking-status-completed' : 'booking-status-confirmed'}">${client.status === 'Completed' ? 'Gallery Dispatched' : 'Asset Editing'}</span></td>`;
+    tr.innerHTML = `<td><strong>${escapeHtml(client.name)}</strong><br><span style="color:var(--text-muted); font-size:12px;">Ref ID: ${escapeHtml(client.booking_id)}</span></td><td>${escapeHtml(client.session_type)}</td><td><span class="status-pill ${quoteSent ? 'booking-status-confirmed' : 'booking-status-pending'}">${quoteSent ? 'Dispatched' : 'Drafting'}</span></td><td><span class="status-pill ${depositPaid ? 'booking-status-confirmed' : 'booking-status-cancelled'}">${depositPaid ? 'Collected' : 'Outstanding'}</span></td><td><span class="status-pill ${client.status === 'Completed' ? 'booking-status-completed' : 'booking-status-confirmed'}">${client.status === 'Completed' ? 'Gallery Dispatched' : 'Asset Editing'}</span></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -303,15 +402,16 @@ document.getElementById("statusFilter").addEventListener("change", filterBooking
 function filterBookings() {
   const search = document.getElementById("bookingSearch").value.toLowerCase();
   const status = document.getElementById("statusFilter").value;
-  const filtered = allBookings.filter(booking => (booking.name.toLowerCase().includes(search) || booking.email.toLowerCase().includes(search) || booking.booking_id.toLowerCase().includes(search)) && (status === "all" || booking.status === status));
+  const filtered = allBookings.filter(booking => [booking.name, booking.email, booking.booking_id].some(value => String(value ?? '').toLowerCase().includes(search)) && (status === "all" || booking.status === status));
   renderBookings(filtered);
 }
 
 function openBookingModalById(id) { openBookingModal(allBookings.find(b => b.booking_id === id)); }
 function openBookingModal(booking) {
   document.getElementById("bookingModal").classList.add("active");
-  document.getElementById("modalContent").innerHTML = `<div style="margin-bottom:20px;"><strong>Booking ID:</strong> ${booking.booking_id}</div><div style="margin-bottom:20px;"><strong>Client:</strong> ${escapeHtml(booking.name)}</div><div style="margin-bottom:20px;"><strong>Email:</strong> ${escapeHtml(booking.email)}</div><div style="margin-bottom:20px;"><strong>Phone:</strong> ${booking.phone || "N/A"}</div><div style="margin-bottom:20px;"><strong>Session:</strong> ${booking.session_type}</div><div style="margin-bottom:20px;"><strong>Date:</strong> ${booking.preferred_date}</div><div style="margin-bottom:20px;"><strong>Location:</strong> ${booking.location || "N/A"}</div><div style="margin-bottom:25px;"><strong>Client Message:</strong><div style="margin-top:10px; padding:20px; background:#FAF9F7; border:1px solid var(--border-color);">${(booking.message || "No message provided.").replace(/\n/g, '<br>')}</div></div><label>Status</label><select id="modalStatus"><option value="Pending">Pending</option><option value="Confirmed">Confirmed</option><option value="Completed">Completed</option><option value="Cancelled">Cancelled</option></select><label>Private Notes</label><textarea id="modalNotes" rows="5">${booking.notes || ""}</textarea><button onclick="updateBooking('${booking.booking_id}')">Save Changes</button>`;
+  document.getElementById("modalContent").innerHTML = `<div style="margin-bottom:20px;"><strong>Booking ID:</strong> ${escapeHtml(booking.booking_id)}</div><div style="margin-bottom:20px;"><strong>Client:</strong> ${escapeHtml(booking.name)}</div><div style="margin-bottom:20px;"><strong>Email:</strong> ${escapeHtml(booking.email)}</div><div style="margin-bottom:20px;"><strong>Phone:</strong> ${escapeHtml(booking.phone || "N/A")}</div><div style="margin-bottom:20px;"><strong>Session:</strong> ${escapeHtml(booking.session_type)}</div><div style="margin-bottom:20px;"><strong>Date:</strong> ${escapeHtml(booking.preferred_date)}</div><div style="margin-bottom:20px;"><strong>Location:</strong> ${escapeHtml(booking.location || "N/A")}</div><div style="margin-bottom:25px;"><strong>Client Message:</strong><div style="margin-top:10px; padding:20px; background:#FAF9F7; border:1px solid var(--border-color);">${escapeHtml(booking.message || "No message provided.").replace(/\n/g, '<br>')}</div></div><label>Status</label><select id="modalStatus"><option value="Pending">Pending</option><option value="Confirmed">Confirmed</option><option value="Completed">Completed</option><option value="Cancelled">Cancelled</option></select><label>Private Notes</label><textarea id="modalNotes" rows="5">${escapeHtml(booking.notes || "")}</textarea><button id="saveBookingButton">Save Changes</button>`;
   document.getElementById("modalStatus").value = booking.status;
+  document.getElementById("saveBookingButton").onclick = () => updateBooking(booking.booking_id);
 }
 function closeBookingModal() { document.getElementById("bookingModal").classList.remove("active"); }
 
@@ -343,64 +443,41 @@ function handleFiles(files) {
   const queueList = document.getElementById('uploadQueue');
   container.style.display = 'block';
   Array.from(files).forEach(file => {
+    if (uploadQueue.some(item => item.file.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified)) return;
     const id = 'queue_' + Math.random().toString(36).substr(2, 9);
     uploadQueue.push({ id, file, status: 'pending' });
     const div = document.createElement('div'); div.className = 'queue-item'; div.id = id;
-    div.innerHTML = `<span class="queue-name">${file.name} (${(file.size/1024/1024).toFixed(2)} MB)</span><span class="queue-status status-pending">Pending</span>`;
+    div.innerHTML = `<span class="queue-name">${escapeHtml(file.name)} (${(file.size/1024/1024).toFixed(2)} MB)</span><span class="queue-status status-pending">Pending</span>`;
     queueList.appendChild(div);
   });
 }
 
 async function uploadQueueItems() {
-  const category = document.getElementById("galleryCategory").value;
-  const altText = document.getElementById("galleryAltText").value.trim();
-  const caption = document.getElementById("galleryCaption").value.trim();
-  const activeQueue = uploadQueue.filter(item => item.status === 'pending');
-  const globalStatus = document.getElementById("portfolioUploadStatus");
-  
-  if (activeQueue.length === 0) return alert("Upload queue contains no raw pending imagery assets.");
-  showMsg(globalStatus, "success", "Starting multi-file master processing upload...");
-  
-  for (let item of activeQueue) {
-    const element = document.getElementById(item.id);
-    const labelStatus = element.querySelector('.queue-status');
-    item.status = 'loading';
-    labelStatus.className = 'queue-status status-loading';
-    labelStatus.textContent = 'Syncing...';
-    try {
-      const base64String = await convertToBase64(item.file);
-      const cleanedBase64 = base64String.split(',')[1];
-      const response = await fetch(GOOGLE_SCRIPT_URL, {
-        method: "POST", mode: "cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ 
-          action: "admin_add_gallery", 
-          token: adminToken, 
-          file_data: cleanedBase64, 
-          file_type: item.file.type, 
-          file_name: item.file.name, 
-          category: category, 
-          alt_text: altText, 
-          caption: caption 
-        })
-      });
-      const res = await response.json();
-      if (res.success) { 
-        item.status = 'success'; 
-        labelStatus.className = 'queue-status status-success'; 
-        labelStatus.textContent = 'Success'; 
-      } else { 
-        throw new Error(res.error || "Execution failed"); 
+  if (portfolioUploading) return;
+  const activeQueue = uploadQueue.filter(item => item.status === 'pending' || item.status === 'error');
+  if (!activeQueue.length) return;
+  portfolioUploading = true;
+  const status = document.getElementById('portfolioUploadStatus');
+  const payload = { action: 'admin_add_gallery', token: adminToken,
+    category: document.getElementById('galleryCategory').value,
+    alt_text: document.getElementById('galleryAltText').value.trim(),
+    caption: document.getElementById('galleryCaption').value.trim() };
+  let failed = 0;
+  try {
+    for (const item of activeQueue) {
+      const label = document.getElementById(item.id).querySelector('.queue-status');
+      item.status = 'loading'; label.textContent = 'Uploading...';
+      try {
+        const result = await UploadClient.upload(GOOGLE_SCRIPT_URL, payload, item.file);
+        item.status = 'success'; label.textContent = result.duplicate ? 'Already uploaded' : 'Uploaded';
+      } catch (error) {
+        failed++; item.status = 'error'; label.textContent = error.message;
       }
-    } catch(err) { 
-      item.status = 'error'; 
-      labelStatus.className = 'queue-status status-error'; 
-      labelStatus.textContent = 'Failed'; 
+      label.className = 'queue-status status-' + item.status;
     }
-  }
-  showMsg(globalStatus, "success", "Queue run complete. Assets matched and written.");
+    showMsg(status, failed ? 'error' : 'success', (activeQueue.length - failed) + ' succeeded; ' + failed + ' failed. ' + (failed ? 'Click Publish again to retry failed files.' : 'Complete.'));
+  } finally { portfolioUploading = false; }
 }
-
-function convertToBase64(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error); }); }
 
 // Client Galleries Functions
 async function loadGalleries() {
@@ -419,17 +496,7 @@ async function loadGalleries() {
 
   try {
 
-    const response = await fetch(
-      `${GOOGLE_SCRIPT_URL}?action=admin_list_galleries&token=${encodeURIComponent(adminToken)}`
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    console.log("Gallery API response:", data);
+    const data = await UploadClient.post(GOOGLE_SCRIPT_URL, { action: 'admin_list_galleries', token: adminToken });
 
     if (data.success) {
 
@@ -495,7 +562,7 @@ function renderGalleries(galleries) {
     const imageCount = Number(g.image_count) || 0;
 
     const link =
-      `${window.location.origin}/gallery.html?id=${encodeURIComponent(galleryId)}`;
+      `${new URL("gallery.html", window.location.href).href}?id=${encodeURIComponent(galleryId)}`;
 
     const tr = document.createElement("tr");
 
@@ -529,7 +596,7 @@ function renderGalleries(galleries) {
 
       <td>
         <a
-          href="${link}"
+          href="${escapeHtml(link)}" rel="noopener noreferrer"
           target="_blank"
           style="
             color:var(--accent-gold);
@@ -544,7 +611,7 @@ function renderGalleries(galleries) {
       <td>
         <button
           class="action-btn"
-          onclick="editGallery('${escapeHtml(galleryId)}')"
+          data-gallery-edit
         >
           Modify Files
         </button>
@@ -552,75 +619,100 @@ function renderGalleries(galleries) {
 
     `;
 
+    tr.querySelector('[data-gallery-edit]').addEventListener('click', () => editGallery(galleryId));
     tbody.appendChild(tr);
 
   });
 }
 
 document.getElementById('newGalleryBtn')?.addEventListener('click', () => {
+  if (clientUploading) return;
   const modal = document.getElementById('galleryModal');
   document.getElementById('galleryModalContent').innerHTML = `
     <label>Gallery ID (Unique slug lowercase/dashed, e.g. "smith-wedding")</label><input id="galId" placeholder="e.g. jensen-editorial">
     <label>Client Reference Name</label><input id="galClientName" placeholder="e.g., Emily & James Jensen">
-    <label>Client Access Password</label><input type="text" id="galPassword" placeholder="e.g., JENSEN2026!">
-    <button onclick="createGallery()">Commit Direct Private Route</button>
+    <label>Client Access Password (at least 12 characters)</label><input type="text" id="galPassword" minlength="12" placeholder="Use a long, unique password">
+    <button id="createGalleryButton" onclick="createGallery()">Create Gallery</button>
   `;
   modal.classList.add('active');
 });
 
 async function createGallery() {
+  const button = document.getElementById('createGalleryButton');
+  if (button.disabled) return;
   const id = document.getElementById('galId').value.trim();
   const pass = document.getElementById('galPassword').value.trim();
   const client = document.getElementById('galClientName').value.trim();
   if (!id || !pass) return alert('Gallery ID and secure token strings are required.');
-  const res = await fetch(GOOGLE_SCRIPT_URL, {
-    method: 'POST',
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: 'admin_create_gallery', token: adminToken, gallery_id: id, password: pass, client_name: client })
-  });
-  const data = await res.json();
-  if (data.success) {
+  if (pass.length < 12) return alert('Use a password of at least 12 characters.');
+  button.disabled = true;
+  try {
+    await UploadClient.post(GOOGLE_SCRIPT_URL, { action: 'admin_create_gallery', token: adminToken, gallery_id: id, password: pass, client_name: client });
     closeGalleryModal();
-    loadGalleries();
-  } else {
-    alert(data.error || 'Creation engine rejection');
-  }
+    await loadGalleries();
+  } catch (error) {
+    alert(error.message + ' If the connection was interrupted, refresh the gallery list before creating it again.');
+  } finally { button.disabled = false; }
 }
 
 async function editGallery(galleryId) {
+  if (clientUploading) return;
   const modal = document.getElementById('galleryModal');
   document.getElementById('galleryModalContent').innerHTML = `
     <h3>Target Studio Route: ${escapeHtml(galleryId)}</h3><br>
     <label>Select Multi-Asset Delivery</label>
-    <input type="file" id="galleryUploadInput" multiple accept="image/*">
-    <button onclick="uploadToGallery('${galleryId}')">Transmit Client Package</button>
+    <input type="file" id="galleryUploadInput" multiple accept="image/jpeg,image/png,image/webp,image/gif">
+    <p>JPEG, PNG, WebP or GIF. Keep this page open until the batch finishes. Reselecting the same files safely skips existing uploads.</p>
+    <button id="clientUploadButton">Transmit Client Package</button>
     <div id="galleryUploadStatus" style="margin-top:20px; max-height:200px; overflow-y:auto; font-size:12px; background:#f9f9f9; padding:10px;"></div>
   `;
+  document.getElementById('clientUploadButton').onclick = () => uploadToGallery(galleryId);
   modal.classList.add('active');
 }
 
 async function uploadToGallery(galleryId) {
-  const files = document.getElementById('galleryUploadInput').files;
-  if (!files.length) return alert('Select items to stage first.');
-  const statusDiv = document.getElementById('galleryUploadStatus');
-  statusDiv.innerHTML = '';
-  for (let file of files) {
-    statusDiv.innerHTML += `<div>Staging sequence: ${file.name}...</div>`;
-    const base64 = await convertToBase64(file);
-    const cleaned = base64.split(',')[1];
-    const res = await fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: 'admin_add_gallery_image', token: adminToken, gallery_id: galleryId, file_data: cleaned, file_name: file.name })
+  if (clientUploading) return;
+  const input = document.getElementById('galleryUploadInput');
+  const files = Array.from(input.files);
+  if (!files.length) return alert('Select photos first.');
+  clientUploading = true;
+  input.disabled = true;
+  const button = document.getElementById('clientUploadButton');
+  button.disabled = true;
+  const status = document.getElementById('galleryUploadStatus');
+  status.textContent = '';
+  let failed = 0;
+  let skipped = 0;
+  try {
+    await UploadClient.batch(files, async (file, i) => {
+      const line = document.createElement('div');
+      status.appendChild(line);
+      line.textContent = (i + 1) + '/' + files.length + ': Uploading ' + file.name;
+      try {
+        const result = await UploadClient.upload(GOOGLE_SCRIPT_URL, { action: 'admin_add_gallery_image', token: adminToken, gallery_id: galleryId }, file);
+        if (result.duplicate) skipped++;
+        line.textContent = (result.duplicate ? 'Already uploaded: ' : 'Uploaded: ') + file.name;
+        line.style.color = 'green';
+      } catch (error) {
+        failed++; line.textContent = 'Failed: ' + file.name + ' — ' + error.message; line.style.color = '#9C2A2A';
+      }
     });
-    const data = await res.json();
-    if (data.success) statusDiv.innerHTML += `<div style="color:green;">✅ Written: ${file.name}</div>`;
-    else statusDiv.innerHTML += `<div style="color:red;">❌ Core Refusal: ${file.name} - ${data.error}</div>`;
+    const summary = document.createElement('p');
+    summary.textContent = (files.length - failed - skipped) + ' uploaded; ' + skipped + ' already present; ' + failed + ' failed.' + (failed ? ' Click upload again to retry; completed photos will be skipped.' : ' Complete.');
+    status.appendChild(summary);
+  } finally {
+    clientUploading = false; input.disabled = false; button.disabled = false;
+    await loadGalleries();
   }
-  loadGalleries();
 }
 
-function closeGalleryModal() { document.getElementById('galleryModal').classList.remove('active'); }
+function closeGalleryModal() {
+  if (clientUploading) return alert('Please keep the upload window open until the batch finishes.');
+  document.getElementById('galleryModal').classList.remove('active');
+}
+window.addEventListener('beforeunload', event => {
+  if (clientUploading || portfolioUploading) { event.preventDefault(); event.returnValue = ''; }
+});
 
 // Helper
 function escapeHtml(value) {
