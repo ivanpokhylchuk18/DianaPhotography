@@ -160,6 +160,7 @@
 
     <div id="clientGalleriesPanel" class="panel">
       <h2>Password‑Protected Client Galleries</h2>
+      <div id="lastGalleryUpload" class="msg" role="status" aria-live="polite" aria-atomic="true"></div>
       <div style="margin-bottom: 2rem;">
         <button id="newGalleryBtn" class="action-btn">+ Create New Gallery</button>
       </div>
@@ -663,7 +664,8 @@ async function editGallery(galleryId) {
     <label>Select Multi-Asset Delivery</label>
     <input type="file" id="galleryUploadInput" multiple accept="image/jpeg,image/png,image/webp,image/gif">
     <p>JPEG, PNG, WebP or GIF. Keep this page open until the batch finishes. Reselecting the same files safely skips existing uploads.</p>
-    <button id="clientUploadButton">Transmit Client Package</button>
+    <button id="clientUploadButton">Upload photos</button>
+    <div id="galleryUploadSummary" class="msg" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="galleryUploadStatus" style="margin-top:20px; max-height:200px; overflow-y:auto; font-size:12px; background:#f9f9f9; padding:10px;"></div>
   `;
   document.getElementById('clientUploadButton').onclick = () => uploadToGallery(galleryId);
@@ -683,6 +685,19 @@ async function uploadToGallery(galleryId) {
   status.textContent = '';
   let failed = 0;
   let skipped = 0;
+  let completed = 0;
+  const confirmation = document.getElementById('galleryUploadSummary');
+  const lastUpload = document.getElementById('lastGalleryUpload');
+  const progress = () => {
+    button.textContent = `Uploading… ${completed} of ${files.length} processed`;
+    confirmation.className = 'msg';
+    confirmation.style.display = 'block';
+    confirmation.textContent = `Uploading photos to ${galleryId}: ${completed} of ${files.length} processed. Keep this window open until the completion message appears.`;
+  };
+  lastUpload.textContent = '';
+  lastUpload.className = 'msg';
+  lastUpload.style.display = '';
+  progress();
   try {
     await UploadClient.batch(files, async (file, i) => {
       const line = document.createElement('div');
@@ -695,13 +710,22 @@ async function uploadToGallery(galleryId) {
         line.style.color = 'green';
       } catch (error) {
         failed++; line.textContent = 'Failed: ' + file.name + ' — ' + error.message; line.style.color = '#9C2A2A';
-      }
+      } finally { completed++; progress(); }
     });
     const summary = document.createElement('p');
     summary.textContent = (files.length - failed - skipped) + ' uploaded; ' + skipped + ' already present; ' + failed + ' failed.' + (failed ? ' Click upload again to retry; completed photos will be skipped.' : ' Complete.');
     status.appendChild(summary);
+    const message = failed
+      ? `Upload finished with errors for ${galleryId}. ${files.length - failed - skipped} uploaded; ${skipped} already present; ${failed} failed. Review the errors below, then click Retry selected photos. Saved photos will not be uploaded twice.`
+      : `Upload complete for ${galleryId} — all ${files.length} selected photos are saved. ${files.length - skipped} newly uploaded; ${skipped} already present; no upload errors. You can close this window.`;
+    showMsg(confirmation, failed ? 'error' : 'success', message);
+    showMsg(lastUpload, failed ? 'error' : 'success', failed ? `${galleryId}: ${files.length - failed} of ${files.length} selected photos saved; ${failed} failed. Open Modify Files to retry the failed selection.` : message);
+  } catch (error) {
+    showMsg(confirmation, 'error', `Upload interrupted: ${error.message}. Completion could not be confirmed. Reselect the photos and retry; saved photos will be skipped.`);
+    showMsg(lastUpload, 'error', `Upload to ${galleryId} was interrupted. Completion could not be confirmed.`);
   } finally {
     clientUploading = false; input.disabled = false; button.disabled = false;
+    button.textContent = failed ? 'Retry selected photos' : 'Upload photos';
     await loadGalleries();
   }
 }

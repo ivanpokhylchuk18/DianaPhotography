@@ -32,6 +32,7 @@
     .msg { display: none; padding: 14px; margin-top: 18px; font-size: 13px; text-align: center; }
     .msg.error { display: block; background: #FCEAEA; color: #9C2A2A; }
     .msg.success { display: block; background: #EAF5EA; color: #2E662E; }
+    .msg.loading { display: block; background: #F3EEE6; color: #57452E; }
 
     /* Protected Gallery Content View */
     #galleryView { display: none; }
@@ -78,11 +79,13 @@
 
   <!-- Protected Visual Assets View -->
   <div id="galleryView">
+    <div id="photoLoadStatus" class="msg" role="status" aria-live="polite" aria-atomic="true"></div>
+    <button id="retryPhotosBtn" type="button" hidden>Retry photos that did not load</button>
     <div class="gallery-downloads">
       <button id="downloadAllBtn" type="button" disabled>Download all photos</button>
       <button id="cancelDownloadBtn" type="button" hidden>Cancel download</button>
       <p>Save the complete collection as one ZIP, in original quality.</p>
-      <p id="downloadStatus" role="status" aria-live="polite"></p>
+      <p id="downloadStatus" class="msg" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p>
     </div>
     <div class="gallery-grid" id="photoGrid"></div>
   </div>
@@ -180,7 +183,9 @@
   function renderPhotos(images) {
     const grid = document.getElementById("photoGrid");
     grid.innerHTML = "";
-
+    const status = document.getElementById('photoLoadStatus');
+    const retry = document.getElementById('retryPhotosBtn');
+    const records = [];
     images.forEach(imgObj => {
       const item = document.createElement("div");
       item.className = "gallery-item";
@@ -189,20 +194,51 @@
       const img = document.createElement("img");
 
       img.alt = imgObj.filename || "Client gallery image";
-      img.loading = "lazy";
-
-      img.onload = () => img.style.opacity = "1";
-      img.onerror = () => {
-        console.warn("Failed to load image:", imgObj.url);
-        img.style.opacity = "1";
-        img.style.backgroundColor = "#f0f0f0";
-        img.alt = "Image could not be loaded";
-      };
-
-      img.src = imgObj.url;
+      records.push({ img, url: imgObj.url, name: img.alt, state: 'pending' });
       item.appendChild(img);
       grid.appendChild(item);
     });
+    function update() {
+      const loaded = records.filter(record => record.state === 'loaded').length;
+      const failed = records.filter(record => record.state === 'failed').length;
+      const finished = loaded + failed === records.length;
+      status.className = 'msg ' + (finished ? (failed ? 'error' : 'success') : 'loading');
+      status.textContent = finished
+        ? (failed ? `${loaded} of ${records.length} photos loaded. ${failed} could not load. Please retry below.` : `Your gallery is ready — all ${loaded} photos have loaded successfully.`)
+        : `Loading your gallery: ${loaded} of ${records.length} photos ready${failed ? `; ${failed} could not load` : ''}. Please keep this page open.`;
+      retry.hidden = !finished || !failed;
+    }
+    async function loadPending() {
+      retry.hidden = true;
+      const pending = records.filter(record => record.state !== 'loaded');
+      pending.forEach(record => { record.state = 'pending'; });
+      update();
+      let next = 0;
+      // Load the whole collection, including photos below the fold, with bounded concurrency.
+      await Promise.all(Array.from({ length: Math.min(4, pending.length) }, async () => {
+        while (next < pending.length) {
+          const record = pending[next++];
+          await new Promise(resolve => {
+            let settled = false;
+            const finish = success => {
+              if (settled) return;
+              settled = true; clearTimeout(timer);
+              record.img.onload = record.img.onerror = null;
+              record.state = success ? 'loaded' : 'failed';
+              record.img.style.opacity = '1';
+              record.img.alt = success ? record.name : `${record.name} — could not load`;
+              update(); resolve();
+            };
+            const timer = setTimeout(() => finish(false), 90000);
+            record.img.onload = () => finish(true);
+            record.img.onerror = () => finish(false);
+            record.img.src = record.url;
+          });
+        }
+      }));
+    }
+    retry.onclick = loadPending;
+    loadPending();
   }
 
   async function downloadAllPhotos() {
@@ -212,17 +248,29 @@
     const cancel = document.getElementById('cancelDownloadBtn');
     const status = document.getElementById('downloadStatus');
     button.disabled = true; cancel.hidden = false;
+    button.textContent = 'Preparing your ZIP…';
+    status.className = 'msg loading';
+    status.setAttribute('aria-busy', 'true');
     status.textContent = 'Preparing your collection… Keep this page open.';
     try {
       const result = await GalleryDownload.save({ url: APPS_SCRIPT_URL, galleryId, password: galleryPassword,
         images: galleryImages.slice(), signal: downloadController.signal,
         onProgress: message => { status.textContent = message; }
       });
-      status.textContent = result.savedToDisk ? `Saved all ${result.count} photos in one ZIP.` : `Your ZIP with all ${result.count} photos is ready. Check your browser downloads.`;
+      status.className = 'msg success';
+      status.textContent = result.savedToDisk
+        ? `Download complete — your ZIP has been saved successfully with all ${result.count} original photos. No photos were skipped. Everything is ready; you can close this page.`
+        : `Your ZIP is ready — all ${result.count} original photos are included, and the download has started. No photos were skipped. Check your browser’s Downloads for confirmation that the file finished saving.`;
+      button.textContent = 'Download ZIP again';
     } catch (error) {
+      status.className = error.name === 'AbortError' ? 'msg loading' : 'msg error';
       status.textContent = error.name === 'AbortError' ? 'Download cancelled. You can start again anytime.' : 'Download did not finish: ' + error.message + ' Please try again.';
+      button.textContent = error.name === 'AbortError' ? 'Download all photos' : 'Retry ZIP download';
     } finally {
       downloadController = null; button.disabled = false; cancel.hidden = true;
+      status.setAttribute('aria-busy', 'false');
+      status.focus({ preventScroll: true });
+      status.scrollIntoView({ block: 'nearest' });
     }
   }
   window.addEventListener('beforeunload', event => {

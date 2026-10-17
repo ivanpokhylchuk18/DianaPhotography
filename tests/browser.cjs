@@ -102,6 +102,81 @@ let failures=0;
       await page.locator('#nextBtn-2').click();await page.locator('#submitBtn').click();
       await page.locator('#success-ref-id').filter({hasText:'DO-'}).waitFor();assert(await page.locator('#wizard-success').isVisible());
     });
+    for (const outcome of ['disk','browser','error','cancelled']) {
+      await check('ZIP confirmation accurately reports '+outcome,async page=>{
+        await page.goto('https://studio.test/gallery.html?id=client-one');
+        await page.locator('#galleryPass').fill('a-strong-password');await page.locator('#unlockBtn').click();
+        await page.locator('#galleryView').waitFor({state:'visible'});
+        // Exercise UI states; regression tests separately validate real ZIP writing and closing.
+        await page.evaluate(outcome=>{
+          GalleryDownload.save=async ({onProgress})=>{
+            onProgress('Finishing your ZIP download…');
+            await new Promise(resolve=>setTimeout(resolve,100));
+            if(outcome==='error') throw new Error('Photo unavailable');
+            if(outcome==='cancelled') throw new DOMException('Cancelled','AbortError');
+            return {count:1,savedToDisk:outcome==='disk'};
+          };
+        },outcome);
+        await page.locator('#downloadAllBtn').click();
+        const status=page.locator('#downloadStatus');
+        await page.waitForFunction(()=>document.getElementById('downloadStatus').getAttribute('aria-busy')==='false');
+        assert(await status.isVisible());
+        const message=await status.innerText();
+        if(outcome==='disk') assert.match(message,/Download complete.*saved successfully with all 1 original photos/);
+        if(outcome==='browser') {assert.match(message,/download has started/);assert(!message.includes('saved successfully'));}
+        if(outcome==='error') {assert.match(message,/Download did not finish: Photo unavailable/);assert.equal(await status.getAttribute('class'),'msg error');}
+        if(outcome==='cancelled') {assert.match(message,/Download cancelled/);assert.notEqual(await status.getAttribute('class'),'msg success');}
+        assert(await page.locator('#downloadAllBtn').isEnabled());assert(await page.locator('#cancelDownloadBtn').isHidden());
+      });
+    }
+    await check('gallery confirms every image, reports failure, and retries only failed previews',async page=>{
+      const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
+      const calls={};let fail=true;
+      await page.route('https://preview.test/**',async route=>{
+        const id=new URL(route.request().url()).pathname;calls[id]=(calls[id]||0)+1;
+        if(id==='/2'&&fail) return route.fulfill({status:404,body:''});
+        await new Promise(resolve=>setTimeout(resolve,80));
+        await route.fulfill({contentType:'image/png',body:png});
+      });
+      await page.goto('https://studio.test/gallery.html?id=client-one');
+      await page.evaluate(()=>{
+        document.getElementById('galleryView').style.display='block';
+        renderPhotos(Array.from({length:6},(_,i)=>({filename:`photo-${i}`,url:`https://preview.test/${i}`})));
+      });
+      assert.match(await page.locator('#photoLoadStatus').innerText(),/Loading your gallery/);
+      await page.locator('#photoLoadStatus').filter({hasText:'5 of 6 photos loaded. 1 could not load'}).waitFor();
+      assert.equal(await page.locator('#photoLoadStatus').getAttribute('class'),'msg error');
+      fail=false;await page.locator('#retryPhotosBtn').click();
+      await page.locator('#photoLoadStatus').filter({hasText:'all 6 photos have loaded successfully'}).waitFor();
+      assert.equal(calls['/2'],2);assert.equal(calls['/0'],1);assert.equal(calls['/5'],1);
+      assert(await page.locator('#retryPhotosBtn').isHidden());
+    });
+    await check('upload completion is visible, counts duplicates, and never calls failures successful',async page=>{
+      await page.route('https://script.google.com/**',async route=>{
+        const payload=route.request().postDataJSON();
+        let result;
+        if(payload.action==='admin_add_gallery_image') {
+          await new Promise(resolve=>setTimeout(resolve,80));
+          result=payload.file_name==='bad.jpg'?{success:false,error:'Test failure'}:{success:true,duplicate:payload.file_name==='duplicate.jpg'};
+        } else result=backend.post(payload);
+        await route.fulfill({contentType:'application/json',body:JSON.stringify(result)});
+      });
+      await page.goto('https://studio.test/admin.html');
+      await page.locator('#gateToken').fill('admin-secret');await page.locator('#loginBtn').click();
+      await page.getByRole('button',{name:'Client Galleries',exact:true}).click();
+      await page.getByRole('button',{name:'Modify Files',exact:true}).first().click();
+      const input=names=>names.map(name=>({name,mimeType:'image/jpeg',buffer:photo}));
+      await page.locator('#galleryUploadInput').setInputFiles(input(['new.jpg','duplicate.jpg']));
+      await page.locator('#clientUploadButton').click();
+      await page.locator('#galleryUploadSummary').filter({hasText:'all 2 selected photos are saved'}).waitFor();
+      assert.match(await page.locator('#galleryUploadSummary').innerText(),/1 newly uploaded; 1 already present; no upload errors/);
+      assert(await page.locator('#lastGalleryUpload').isVisible());
+      await page.locator('#galleryUploadInput').setInputFiles(input(['bad.jpg']));
+      await page.locator('#clientUploadButton').click();
+      await page.locator('#galleryUploadSummary').filter({hasText:'Upload finished with errors'}).waitFor();
+      assert.equal(await page.locator('#galleryUploadSummary').getAttribute('class'),'msg error');
+      assert.match(await page.locator('#lastGalleryUpload').innerText(),/1 failed/);
+    });
   } finally {await browser.close();}
   process.exitCode=failures?1:0;
 })().catch(error=>{console.error(error);process.exitCode=1;});

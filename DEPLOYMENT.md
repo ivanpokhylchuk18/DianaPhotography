@@ -2,6 +2,18 @@
 
 Changes are saved locally; nothing has been published to your website or Google account.
 
+## October 17: gallery and upload confirmations
+
+ZIP completion follow-up: publish the latest `gallery.html`. A prominent green message reports the original-photo count after successful ZIP creation. Direct-to-disk browsers confirm the ZIP was saved only after the writer closes; other browsers confirm the archive is ready and the browser download has started, directing visitors to Downloads to verify saving. Failures and cancellations never show success. The completion message receives focus and scrolls into view. No backend or download-helper change is required. Validation now includes 22 browser checks plus 40 regression checks.
+
+Publish `admin.html` and `gallery.html`, then reload both pages. No Apps Script change or redeployment is needed for these confirmations.
+
+The client gallery shows image-loading progress and confirms success only after every preview has loaded. Preview requests run four at a time, including images below the fold. Failed or timed-out previews are counted and can be retried without reloading successful previews. This confirmation concerns gallery previews; ZIP completion remains a separate message.
+
+The admin upload window shows processed-file progress, then a prominent success or error summary with newly uploaded, already-present and failed counts. The latest result remains in the Client Galleries panel after the modal closes, until another batch starts or the page reloads. Success relies on the server's upload acknowledgements; it does not assert that a visitor's browser has loaded the photos. Existing duplicate protection is retained.
+
+Validation: 40 regression checks and 18 Chrome browser checks pass, including preview failure/retry and upload success/duplicate/failure confirmations. Google services are simulated in tests; no live data was changed.
+
 ## Latest: large-photo string-error mitigation
 
 The exact production error is unknown; the user recalled a string-related message. This update addresses a plausible large-string failure path, not a confirmed production diagnosis.
