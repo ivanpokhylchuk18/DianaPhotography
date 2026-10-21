@@ -102,6 +102,24 @@ let failures=0;
       await page.locator('#nextBtn-2').click();await page.locator('#submitBtn').click();
       await page.locator('#success-ref-id').filter({hasText:'DO-'}).waitFor();assert(await page.locator('#wizard-success').isVisible());
     });
+    await check('real ZIP survives blocked picker and can be saved again without refetching',async page=>{
+      await page.goto('https://studio.test/gallery.html?id=client-one');
+      await page.locator('#galleryPass').fill('a-strong-password');await page.locator('#unlockBtn').click();
+      await page.locator('#galleryView').waitFor({state:'visible'});
+      await page.evaluate(()=>{window.showSaveFilePicker=async()=>{throw new DOMException('Blocked','SecurityError');};});
+      let requests=0;page.on('request',request=>{if(request.postData()?.includes('download_gallery_image')) requests++;});
+      const started=page.waitForEvent('download');await page.locator('#downloadAllBtn').click();
+      const download=await started;
+      const saved=await download.path();
+      const z=require('../vendor/zip-core-2.24.0.min.js');
+      const reader=new z.ZipReader(new z.Uint8ArrayReader(fs.readFileSync(saved)));
+      const entries=await reader.getEntries();assert.equal(entries.length,1);
+      assert.deepEqual(Buffer.from(await entries[0].getData(new z.Uint8ArrayWriter(),{useWebWorkers:false})),photo);
+      await reader.close();
+      assert(await page.locator('#saveZipLink').isVisible());
+      const again=page.waitForEvent('download');await page.locator('#saveZipLink').click();await again;
+      assert.equal(requests,1,'saving the prepared ZIP must not refetch originals');
+    });
     for (const outcome of ['disk','browser','error','cancelled']) {
       await check('ZIP confirmation accurately reports '+outcome,async page=>{
         await page.goto('https://studio.test/gallery.html?id=client-one');
@@ -109,11 +127,12 @@ let failures=0;
         await page.locator('#galleryView').waitFor({state:'visible'});
         // Exercise UI states; regression tests separately validate real ZIP writing and closing.
         await page.evaluate(outcome=>{
-          GalleryDownload.save=async ({onProgress})=>{
+          GalleryDownload.save=async ({onProgress,onReady})=>{
             onProgress('Finishing your ZIP download…');
             await new Promise(resolve=>setTimeout(resolve,100));
             if(outcome==='error') throw new Error('Photo unavailable');
             if(outcome==='cancelled') throw new DOMException('Cancelled','AbortError');
+            if(outcome==='browser') onReady({url:URL.createObjectURL(new Blob(['zip'])),filename:'client-one-photos.zip'});
             return {count:1,savedToDisk:outcome==='disk'};
           };
         },outcome);
@@ -123,7 +142,12 @@ let failures=0;
         assert(await status.isVisible());
         const message=await status.innerText();
         if(outcome==='disk') assert.match(message,/Download complete.*saved successfully with all 1 original photos/);
-        if(outcome==='browser') {assert.match(message,/download has started/);assert(!message.includes('saved successfully'));}
+        if(outcome==='browser') {
+          assert.match(message,/Save your ZIP/);assert(!message.includes('saved successfully'));
+          assert(await page.locator('#saveZipLink').isVisible());
+          const download=page.waitForEvent('download');await page.locator('#saveZipLink').click();
+          assert.equal((await download).suggestedFilename(),'client-one-photos.zip');
+        } else assert(await page.locator('#saveZipLink').isHidden());
         if(outcome==='error') {assert.match(message,/Download did not finish: Photo unavailable/);assert.equal(await status.getAttribute('class'),'msg error');}
         if(outcome==='cancelled') {assert.match(message,/Download cancelled/);assert.notEqual(await status.getAttribute('class'),'msg success');}
         assert(await page.locator('#downloadAllBtn').isEnabled());assert(await page.locator('#cancelDownloadBtn').isHidden());

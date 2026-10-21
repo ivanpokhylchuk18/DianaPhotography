@@ -251,7 +251,7 @@ test('download API requires password and checks the exact gallery folder', () =>
 function downloadUI(fetch, picker) {
   let downloaded; let clicked=0;
   const context=vm.createContext({zip:require('../vendor/zip-core-2.24.0.min.js'),window:picker?{showSaveFilePicker:picker}:{},
-    WritableStream,AbortController,DOMException,Uint8Array,atob,fetch,
+    WritableStream,ReadableStream,AbortController,DOMException,Uint8Array,atob,fetch,
     setTimeout:(fn,ms)=>ms===60000?0:setTimeout(fn,ms),clearTimeout,
     URL:{createObjectURL:blob=>{downloaded=blob;return'blob:test';},revokeObjectURL(){}},
     document:{body:{appendChild(){}},createElement:()=>({click(){clicked++;},remove(){}})} });
@@ -295,6 +295,87 @@ test('range mismatch cannot produce a corrupted or partial ZIP', async () => {
   const e=downloadUI(async()=>({ok:true,json:async()=>({success:true,file_data:jpeg,size:8,total_size:9*1024*1024,offset:1})}));
   await assert.rejects(e.context.downloader.save({...downloadOptions(),images:[{file_id:'1',filename:'large.jpg',size:9*1024*1024}]}),/range mismatch/);
   assert.equal(e.clicks(),0);
+});
+test('large photos never allocate an entire original before ZIP writing', async () => {
+  const size=9*1024*1024;
+  const e=downloadUI(async(_,options)=>{
+    const {offset}=JSON.parse(options.body);
+    const part=Buffer.alloc(Math.min(4*1024*1024,size-offset),123);
+    return {ok:true,json:async()=>({success:true,file_data:part.toString('base64'),size:part.length,total_size:size,offset})};
+  });
+  e.context.Uint8Array=new Proxy(Uint8Array,{construct(target,args){assert.notEqual(args[0],size,'whole-photo allocation');return new target(...args);}});
+  await e.context.downloader.save({...downloadOptions(),images:[{file_id:'1',filename:'large.jpg',size}]});
+  assert.equal(e.clicks(),1);
+});
+test('a failed later photo range aborts the disk ZIP without committing a partial file', async () => {
+  let closed=false,aborted=false;
+  const offsets=[];const size=9*1024*1024;
+  const e=downloadUI(async(_,options)=>{
+    const {offset}=JSON.parse(options.body);offsets.push(offset);
+    if(offset) return {ok:true,json:async()=>({success:false,error:'Photo unavailable'})};
+    const part=Buffer.alloc(4*1024*1024,123);
+    return {ok:true,json:async()=>({success:true,file_data:part.toString('base64'),size:part.length,total_size:size,offset})};
+  },async()=>({createWritable:async()=>({write:async()=>{},close:async()=>{closed=true;},abort:async()=>{aborted=true;}})}));
+  await assert.rejects(e.context.downloader.save({...downloadOptions(),images:[{file_id:'1',filename:'large.jpg',size}]}),/Photo unavailable/);
+  assert.deepEqual(offsets,[0,4*1024*1024,8*1024*1024]);assert(aborted);assert(!closed);assert.equal(e.clicks(),0);
+});
+test('large ranges overlap, finish out of order, and share three slots with small photos', async () => {
+  const size=17*1024*1024+7;
+  const bytes=Buffer.alloc(size);for(let i=0;i<size;i++) bytes[i]=Math.floor(i/(4*1024*1024))+1;
+  let active=0,peak=0;const finished=[];
+  const e=downloadUI(async(_,options)=>{
+    const {file_id,offset}=JSON.parse(options.body);active++;peak=Math.max(peak,active);
+    await new Promise(resolve=>setTimeout(resolve,offset===0?60:5));
+    active--;finished.push([file_id,offset]);
+    const part=offset===undefined?Buffer.from(jpeg,'base64'):bytes.subarray(offset,offset+4*1024*1024);
+    return {ok:true,json:async()=>({success:true,file_data:part.toString('base64'),size:part.length,total_size:size,offset})};
+  });
+  const images=[{file_id:'large',filename:'large.jpg',size},{file_id:'small',filename:'small.jpg',size:8}];
+  await e.context.downloader.save({...downloadOptions(),images});
+  assert.equal(peak,3);assert(finished.findIndex(([id,offset])=>offset===4*1024*1024)<finished.findIndex(([id,offset])=>offset===0));
+  const z=require('../vendor/zip-core-2.24.0.min.js');const reader=new z.ZipReader(new z.BlobReader(e.blob()));
+  const entries=await reader.getEntries();assert.equal(entries.length,2);
+  assert.deepEqual(Buffer.from(await entries[0].getData(new z.Uint8ArrayWriter(),{useWebWorkers:false})),bytes);
+  assert.deepEqual(Buffer.from(await entries[1].getData(new z.Uint8ArrayWriter(),{useWebWorkers:false})),Buffer.from(jpeg,'base64'));await reader.close();
+});
+test('cancelling parallel ranges aborts every active request without starting later ranges', async () => {
+  const controller=new AbortController();let calls=0,aborted=0;
+  const e=downloadUI(async(_,options)=>new Promise((resolve,reject)=>{
+    calls++;options.signal.addEventListener('abort',()=>{aborted++;reject(new DOMException('Cancelled','AbortError'));},{once:true});
+    if(calls===3) controller.abort();
+  }));
+  await assert.rejects(e.context.downloader.save({...downloadOptions(),signal:controller.signal,images:[{file_id:'large',filename:'large.jpg',size:25*1024*1024}]}),{name:'AbortError'});
+  assert.equal(calls,3);assert.equal(aborted,3);assert.equal(e.clicks(),0);
+});
+test('split ZIP waits for saving and resume skips completed parts', async () => {
+  const ids=[];const ready=[];let continuePart;
+  const e=downloadUI(async(_,options)=>{ids.push(JSON.parse(options.body).file_id);return {ok:true,json:async()=>({success:true,file_data:jpeg,size:8})};});
+  const images=[{file_id:'1',filename:'one.jpg',size:8},{file_id:'2',filename:'two.jpg',size:8}];
+  const saving=e.context.downloader.save({...downloadOptions(),images,partBytes:8,onReady:info=>{ready.push(info);if(info.part===1)return new Promise(resolve=>{continuePart=resolve;});}});
+  while(!continuePart) await new Promise(resolve=>setTimeout(resolve,1));
+  assert.deepEqual(ids,['1']);continuePart();await saving;assert.deepEqual(ids,['1','2']);assert.equal(ready.length,2);
+  ids.length=0;
+  await e.context.downloader.save({...downloadOptions(),images,partBytes:8,startPart:2});
+  assert.deepEqual(ids,['2']);
+});
+test('blocked save picker falls back to a complete ZIP with a reusable download link', async () => {
+  for(const name of ['SecurityError','NotAllowedError','NotSupportedError']) {
+    let ready;
+    const e=downloadUI(async()=>({ok:true,json:async()=>({success:true,file_data:jpeg,size:8})}),async()=>{throw new DOMException('Blocked',name);});
+    const result=await e.context.downloader.save({...downloadOptions(),onReady:value=>{ready=value;}});
+    assert.equal(result.savedToDisk,false);assert.equal(e.clicks(),1);
+    assert.equal(ready.url,'blob:test');assert.equal(ready.filename,'client-one-photos.zip');
+    const z=require('../vendor/zip-core-2.24.0.min.js');const reader=new z.ZipReader(new z.BlobReader(e.blob()));
+    assert.equal((await reader.getEntries()).length,2);await reader.close();
+  }
+});
+test('picker cancellation and disk errors never silently fall back', async () => {
+  for(const name of ['AbortError','QuotaExceededError']) {
+    let calls=0;
+    const e=downloadUI(async()=>{calls++;},async()=>{throw new DOMException('Cannot save',name);});
+    await assert.rejects(e.context.downloader.save(downloadOptions()),{name});
+    assert.equal(calls,0);assert.equal(e.clicks(),0);
+  }
 });
 const downloadOptions=()=>({url:'https://example.com',galleryId:'client-one',password:'password',images:[{file_id:'1',filename:'../photo.jpg'},{file_id:'2',filename:'../photo.jpg'}],signal:new AbortController().signal,onProgress(){}});
 test('download produces one readable ZIP with every original and unique safe filenames', async () => {

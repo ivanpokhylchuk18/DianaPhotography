@@ -84,8 +84,10 @@
     <div class="gallery-downloads">
       <button id="downloadAllBtn" type="button" disabled>Download all photos</button>
       <button id="cancelDownloadBtn" type="button" hidden>Cancel download</button>
-      <p>Save the complete collection as one ZIP, in original quality.</p>
+      <p>Save the complete collection as a ZIP, in original quality. On phones and some browsers it arrives in several smaller parts.</p>
       <p id="downloadStatus" class="msg" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p>
+      <a id="saveZipLink" hidden>Save your ZIP</a>
+      <button id="nextPartBtn" type="button" hidden></button>
     </div>
     <div class="gallery-grid" id="photoGrid"></div>
   </div>
@@ -98,16 +100,18 @@
 </div>
 
 <script src="vendor/zip-core-2.24.0.min.js"></script>
-<script src="gallery-download.js?v=20261016-ranges"></script>
+<script src="gallery-download.js?v=20261021-parallel-ranges"></script>
 <script>
   // ⚠️ IMPORTANT: Replace this URL with the EXACT same URL used in your admin.html
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxUkgLViOMD0GbErmQMXQzmdhq4u0YxLL6pDmzNCCp8rEA_YoP98Eq9zi6ar4PTaZLf/exec";
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxGN_ZBZvWYh16bD8NF0vKJvmt7cGy_Ko8aSSJgr58K1RyxZQS4mv_Fd9D4DNbxyXx8/exec";
 
   const urlParams = new URLSearchParams(window.location.search);
   const galleryId = urlParams.get('id');
   let galleryPassword = '';
   let galleryImages = [];
   let downloadController = null;
+  let readyZipUrl = null;
+  let resumePart = 1; // after a failed multi-part download, restart from this part
 
   document.addEventListener("DOMContentLoaded", () => {
     if (!galleryId) {
@@ -194,7 +198,8 @@
       const img = document.createElement("img");
 
       img.alt = imgObj.filename || "Client gallery image";
-      records.push({ img, url: imgObj.url, name: img.alt, state: 'pending' });
+      // Grid tiles use the resized thumbnail; the lightbox and the ZIP still use the original.
+      records.push({ img, url: imgObj.thumb_url || imgObj.url, name: img.alt, state: 'pending' });
       item.appendChild(img);
       grid.appendChild(item);
     });
@@ -247,27 +252,71 @@
     const button = document.getElementById('downloadAllBtn');
     const cancel = document.getElementById('cancelDownloadBtn');
     const status = document.getElementById('downloadStatus');
+    const saveLink = document.getElementById('saveZipLink');
+    const nextBtn = document.getElementById('nextPartBtn');
+    const startPart = resumePart;
+    saveLink.hidden = true; saveLink.removeAttribute('href');
+    nextBtn.hidden = true; nextBtn.onclick = null;
+    if (readyZipUrl) { URL.revokeObjectURL(readyZipUrl); readyZipUrl = null; }
     button.disabled = true; cancel.hidden = false;
     button.textContent = 'Preparing your ZIP…';
     status.className = 'msg loading';
     status.setAttribute('aria-busy', 'true');
-    status.textContent = 'Preparing your collection… Keep this page open.';
+    status.textContent = startPart > 1
+      ? `Resuming from part ${startPart}… Keep this page open.`
+      : 'Preparing your collection… Keep this page open.';
     try {
       const result = await GalleryDownload.save({ url: APPS_SCRIPT_URL, galleryId, password: galleryPassword,
-        images: galleryImages.slice(), signal: downloadController.signal,
-        onProgress: message => { status.textContent = message; }
+        images: galleryImages.slice(), signal: downloadController.signal, startPart,
+        onProgress: message => { status.textContent = message; },
+        onReady: ({ url, filename, part, parts }) => {
+          readyZipUrl = url;
+          saveLink.href = url; saveLink.download = filename;
+          saveLink.textContent = parts > 1 ? `Save part ${part} of ${parts}` : 'Save your ZIP';
+          saveLink.hidden = false;
+          if (part === parts) return undefined;
+          // Only one part is kept in memory: the next one is built after the visitor confirms.
+          status.className = 'msg success';
+          status.textContent = `Part ${part} of ${parts} is ready. Save it (it may start automatically; otherwise tap “Save part ${part}”), then continue.`;
+          nextBtn.textContent = `I’ve saved part ${part} — prepare part ${part + 1} of ${parts}`;
+          nextBtn.hidden = false;
+          return new Promise(resolve => {
+            nextBtn.onclick = () => {
+              nextBtn.hidden = true; saveLink.hidden = true;
+              if (readyZipUrl) { URL.revokeObjectURL(readyZipUrl); readyZipUrl = null; }
+              status.className = 'msg loading';
+              status.textContent = `Preparing part ${part + 1} of ${parts}… Keep this page open.`;
+              resolve();
+            };
+          });
+        }
       });
+      resumePart = 1;
       status.className = 'msg success';
-      status.textContent = result.savedToDisk
-        ? `Download complete — your ZIP has been saved successfully with all ${result.count} original photos. No photos were skipped. Everything is ready; you can close this page.`
-        : `Your ZIP is ready — all ${result.count} original photos are included, and the download has started. No photos were skipped. Check your browser’s Downloads for confirmation that the file finished saving.`;
+      if (result.savedToDisk) {
+        status.textContent = `Download complete — your ZIP has been saved successfully with all ${result.count} original photos. No photos were skipped. Everything is ready; you can close this page.`;
+      } else if (result.parts > 1) {
+        status.textContent = `All ${result.count} original photos have been delivered across ${result.parts} ZIP files. Check your browser’s Downloads to confirm every part finished saving; if one is missing, use the save link below for the last part, or download again.`;
+      } else {
+        status.textContent = `Your ZIP is ready — all ${result.count} original photos are included. If the download did not start, tap “Save your ZIP” below. Check your browser’s Downloads for confirmation that the file finished saving.`;
+      }
       button.textContent = 'Download ZIP again';
     } catch (error) {
-      status.className = error.name === 'AbortError' ? 'msg loading' : 'msg error';
-      status.textContent = error.name === 'AbortError' ? 'Download cancelled. You can start again anytime.' : 'Download did not finish: ' + error.message + ' Please try again.';
-      button.textContent = error.name === 'AbortError' ? 'Download all photos' : 'Retry ZIP download';
+      const aborted = error.name === 'AbortError';
+      // Parts already saved are fine: a retry continues from the part that failed.
+      resumePart = aborted ? 1 : (error.resumePart || 1);
+      if (aborted) {
+        saveLink.hidden = true; saveLink.removeAttribute('href');
+        if (readyZipUrl) { URL.revokeObjectURL(readyZipUrl); readyZipUrl = null; }
+      }
+      status.className = aborted ? 'msg loading' : 'msg error';
+      status.textContent = aborted
+        ? 'Download cancelled. You can start again anytime.'
+        : 'Download did not finish: ' + error.message + (resumePart > 1 ? ` ${resumePart === 2 ? 'Part 1 is' : `Parts 1–${resumePart - 1} are`} already saved; retry continues from part ${resumePart}.` : ' Please try again.');
+      button.textContent = aborted ? 'Download all photos' : (resumePart > 1 ? `Retry from part ${resumePart}` : 'Retry ZIP download');
     } finally {
       downloadController = null; button.disabled = false; cancel.hidden = true;
+      nextBtn.hidden = true; nextBtn.onclick = null;
       status.setAttribute('aria-busy', 'false');
       status.focus({ preventScroll: true });
       status.scrollIntoView({ block: 'nearest' });

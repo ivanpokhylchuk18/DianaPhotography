@@ -2,6 +2,28 @@
 
 Changes are saved locally; nothing has been published to your website or Google account.
 
+## Latest: parallel large-photo downloads
+
+Publish `gallery.html` and `gallery-download.js` together; this speed improvement requires no Apps Script changes. The helper URL has a new cache version. Existing split-ZIP delivery, five-attempt retries, save confirmation and part-resume behavior are retained.
+
+Previously, photos over 8 MiB waited for each 4 MiB request to finish before starting the next. They now fetch a sliding window of three ranges and write them to the ZIP in the correct byte order. All small-photo and range requests share a three-request limit, including retries. Later large photos remain idle until consumed, and ranges are buffered in a bounded window rather than loading whole originals.
+
+Validation: 47 regression checks and 23 Chromium browser checks pass with simulated Google responses. Coverage includes out-of-order range completion, exact extracted photo bytes, shared concurrency, cancellation, failure without partial disk commits, and split-part waiting/resume.
+
+Reproducible benchmark: `node tests/download-benchmark.cjs` (optionally pass an older helper path). A 25 MiB photo with seven requests and a simulated 200 ms delay per request took 1,547 ms before and 669 ms after in the local comparison, about 2.3× faster. Both ZIPs were extracted and verified against the original. This measures overlap under simulated latency, not production Google throughput. The Apps Script/base64 transport and Google's service limits still apply. Compare the same live gallery on the same connection after publishing to measure the client-visible improvement.
+
+## October 20: ZIP browser fallback and memory repair
+
+Publish `gallery.html` and `gallery-download.js` together. This repair does not change Apps Script. The page's helper version has been updated to bypass older cached code.
+
+The public gallery page, helper and ZIP library were reachable and matched the local versions before this repair. The client's exact error and affected gallery credentials were unavailable, so this is not a confirmed diagnosis of that incident.
+
+- Blocked/unsupported native save dialogs now fall back to a standard browser ZIP download. Cancelling a dialog still cancels, and disk write errors remain errors.
+- Large originals stream their authenticated 4 MiB ranges into the ZIP without allocating a full photo buffer or preloading three large originals. Original bytes are preserved. Browsers without direct disk saving still retain the complete ZIP Blob in memory, so very large collections remain subject to browser limits.
+- A completed browser ZIP keeps a visible **Save your ZIP** link. Clients can click it if automatic saving was blocked, without fetching all photos again. The link remains available until another ZIP is prepared or the page is left.
+
+Validation: 44 regression checks and 23 Chromium browser checks, using simulated Google responses. Tests extract generated ZIPs and compare original bytes, exercise a blocked picker, save the same prepared ZIP twice, and verify failed ranges never commit a partial disk file. A live affected-gallery download remains necessary to confirm the client's specific incident is resolved.
+
 ## October 17: gallery and upload confirmations
 
 ZIP completion follow-up: publish the latest `gallery.html`. A prominent green message reports the original-photo count after successful ZIP creation. Direct-to-disk browsers confirm the ZIP was saved only after the writer closes; other browsers confirm the archive is ready and the browser download has started, directing visitors to Downloads to verify saving. Failures and cancellations never show success. The completion message receives focus and scrolls into view. No backend or download-helper change is required. Validation now includes 22 browser checks plus 40 regression checks.

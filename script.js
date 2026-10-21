@@ -5,7 +5,7 @@ function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, c =>
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxUkgLViOMD0GbErmQMXQzmdhq4u0YxLL6pDmzNCCp8rEA_YoP98Eq9zi6ar4PTaZLf/exec";
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxGN_ZBZvWYh16bD8NF0vKJvmt7cGy_Ko8aSSJgr58K1RyxZQS4mv_Fd9D4DNbxyXx8/exec";
 
   // --- 1. NAVBAR SCROLL ---
   const navbar = document.getElementById('navbar');
